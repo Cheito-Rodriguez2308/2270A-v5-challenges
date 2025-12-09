@@ -6,8 +6,7 @@
 #include "auton.hpp"
 #include "motion.hpp"
 #include "odom.hpp"
-#include "pros/misc.h"
-#include "pros/misc.hpp"
+#include "test_auton.hpp"
 
 // MODULO: main
 // - Conecta PROS con tus modulos
