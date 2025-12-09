@@ -1,144 +1,108 @@
-#include "motion.hpp"
-#include "PID.hpp"
-#include "odom.hpp"
-#include "drive.hpp"
+#include "main.h"
 #include "devices.hpp"
-#include <cmath>
+#include "config.hpp"
+#include "control.hpp"
+#include "drive.hpp"
+#include "auton.hpp"
+#include "motion.hpp"
+#include "odom.hpp"
+#include "pros/misc.h"
+#include "pros/misc.hpp"
 
+// MODULO: main
+// - Conecta PROS con tus modulos
+// - Llama configure_motors e initialize_random_seed
+// - Delega autonomous y opcontrol
+
+// Referencia global de odometria
 extern Odometry odom;
 
-static double sgn(double x) {
-  return (x >= 0.0) ? 1.0 : -1.0;
-}
-
-// ===============================
-// RECTAS BASADAS EN ODOMETRIA
-// ===============================
-//
-// - Usa odom.getTotalDistance() en METROS.
-// - Convierte a mm internamente.
-// - Usa PID sobre distancia restante.
-// - Controla los seis motores de drive en paralelo.
-//
-void drive_mm_pid(double mm_target) {
-  double dir = sgn(mm_target);
-  double mm  = std::fabs(mm_target);
-
-  // Distancia inicial en METROS desde odometria
-  const double start_distance_m = odom.getTotalDistance();
-  double traveled_mm = 0.0;
-
-  // PID sobre distancia restante (mm)
-  PID pid(0.25, 0.0, 0.05, -200.0, 200.0);
-
-  // Brake mode consistente para drive
-  lf.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-  lm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-  lb.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-  rf.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-  rm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-  rb.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-
-  // Timeout de seguridad por si algo se tranca
-  const int TIMEOUT_MS = 3000;
-  const uint32_t t_start = pros::millis();
-
-  while (traveled_mm < mm) {
-    uint32_t now = pros::millis();
-    if (now - t_start >= static_cast<uint32_t>(TIMEOUT_MS)) {
-      break;
-    }
-
-    double current_m = odom.getTotalDistance();
-    traveled_mm = (current_m - start_distance_m) * 1000.0;  // metros a mm
-
-    double remaining_mm = mm - traveled_mm;
-    if (remaining_mm < 5.0) {
-      break;
-    }
-
-    // dt fijo de 10 ms
-    double output = pid.calculate(remaining_mm, 10.0 / 1000.0);
-    int cmd = static_cast<int>(dir * output);
-
-    lf.move_velocity(cmd);
-    lm.move_velocity(cmd);
-    lb.move_velocity(cmd);
-    rf.move_velocity(cmd);
-    rm.move_velocity(cmd);
-    rb.move_velocity(cmd);
-
-    pros::delay(10);
+// Calibracion centralizada de IMU y odometria
+void calibrate_imu_and_odom() {
+  imu_main.reset();
+  while (imu_main.is_calibrating()) {
+    pros::delay(20);
   }
 
-  lf.move(0);
-  lm.move(0);
-  lb.move(0);
-  rf.move(0);
-  rm.move(0);
-  rb.move(0);
+  // Referencia de odometria en (0, 0, 0 rad)
+  odom.reset(0.0, 0.0, 0.0);
 }
 
-// ===============================
-// GIROS BASADOS EN IMU
-// ===============================
-
-static double wrap_deg(double a) {
-  while (a >= 180.0) a -= 360.0;
-  while (a <  -180.0) a += 360.0;
-  return a;
-}
-
-// Giro relativo en grados usando heading del IMU.
-// Usa PID sobre error de heading.
-// No recalibra el IMU.
-void turn_imu_deg(double delta_deg) {
-  // Heading actual 0..360
-  double start = imu_main.get_heading();
-  double target = start + delta_deg;
-
-  // Envuelve a 0..360
-  if (target >= 360.0) target -= 360.0;
-  if (target <   0.0)  target += 360.0;
-
-  // PID sobre error en grados
-  PID pid(2.0, 0.0, 0.25, -100.0, 100.0);
-
-  const int TIMEOUT_MS = 2500;
-  const uint32_t t_start = pros::millis();
-
+// Tarea de seguridad - mientras mantienes Y, frena el drive
+void safety_task() {
   while (true) {
-    uint32_t now = pros::millis();
-    if (now - t_start >= static_cast<uint32_t>(TIMEOUT_MS)) {
-      break;
+    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+      lf.brake();
+      lm.brake();
+      lb.brake();
+      rf.brake();
+      rm.brake();
+      rb.brake();
     }
-
-    double current = imu_main.get_heading();
-    double error = wrap_deg(target - current);
-
-    // Ventana de error aceptable
-    if (std::fabs(error) < 1.5) {
-      break;
-    }
-
-    double output = pid.calculate(error, 10.0 / 1000.0);
-    int cmd = static_cast<int>(output);
-
-    // Lado izquierdo y derecho en sentidos opuestos
-    lf.move_velocity(cmd);
-    lm.move_velocity(cmd);
-    lb.move_velocity(cmd);
-    rf.move_velocity(-cmd);
-    rm.move_velocity(-cmd);
-    rb.move_velocity(-cmd);
-
-    pros::delay(10);
+    pros::delay(50);
   }
+}
 
-  lf.move(0);
-  lm.move(0);
-  lb.move(0);
-  rf.move(0);
-  rm.move(0);
-  rb.move(0);
+void initialize() {
+  pros::lcd::initialize();
+  pros::lcd::set_text(0, "Init...");
+
+  configure_motors();
+  initialize_random_seed();
+
+  // Calibrar IMU una sola vez al arrancar
+  calibrate_imu_and_odom();
+
+  // Iniciar tareas
+  pros::Task safetyTask(safety_task, "Safety Task");
+  pros::Task odomTask(odom_task_fn, "Odom Task");
+
+  pros::lcd::set_text(0, "Init OK");
+}
+
+void disabled() {
+}
+
+void competition_initialize() {
+  // Loop de seleccion mientras el robot esta deshabilitado
+  while (pros::competition::is_disabled() &&
+         !pros::competition::is_autonomous()) {
+
+    // DOWN -> recalibrar IMU y odometria
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
+      pros::lcd::print(0, "Recalibrando IMU...");
+      calibrate_imu_and_odom();
+      pros::lcd::print(0, "IMU listo");
+    }
+
+    // D pad RIGHT -> auton derecho
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+      g_auton_selected = AutonId::Right;
+    }
+
+    // D pad LEFT -> auton izquierdo
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_LEFT)) {
+      g_auton_selected = AutonId::Left;
+    }
+
+    // Mostrar seleccion
+    pros::lcd::clear_line(0);
+    pros::lcd::print(0, "Auton: %s", auton_name(g_auton_selected));
+
+    master.clear_line(0);
+    master.set_text(0, 0, auton_name(g_auton_selected));
+
+    pros::delay(20);
+  }
+}
+
+void autonomous() {
+  autonomous_routine();
+}
+
+void opcontrol() {
+  // Loop principal del driver
+  driver_control_loop();
+  // Si quieres probar trayectorias o tests, puedes llamar:
+  // test_autonomous();
 }
