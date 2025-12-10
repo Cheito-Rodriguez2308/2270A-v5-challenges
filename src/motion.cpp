@@ -133,15 +133,27 @@ static double sgn(double x) {
   return (x >= 0.0) ? 1.0 : -1.0;
 }
 
+// ===============================
+// RECTAS BASADAS EN ODOMETRIA (ROTATION)
+// API en MILIMETROS
+// ===============================
+//
+// mm_target > 0  adelante
+// mm_target < 0  atras
+//
 void drive_mm_pid(double mm_target) {
-  double dir = sgn(mm_target);
-  double mm  = std::fabs(mm_target);
+  double dir       = sgn(mm_target);
+  double target_mm = std::fabs(mm_target);
 
-  const double start_distance_m = odom.getTotalDistance();
-  double traveled_mm = 0.0;
+  // Distancia inicial en METROS desde odometria
+  const double start_m = odom.getTotalDistance();
+  double traveled_mm   = 0.0;
 
+  // PID sobre distancia restante en mm
+  // Salida limitada a [-200, 200] que son RPM aprox de cartucho verde
   PID pid(0.25, 0.0, 0.05, -200.0, 200.0);
 
+  // Brake mode consistente para drive
   lf.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
   lm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
   lb.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
@@ -149,21 +161,37 @@ void drive_mm_pid(double mm_target) {
   rm.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
   rb.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 
-  while (traveled_mm < mm) {
-    double current_m = odom.getTotalDistance();
-    traveled_mm = (current_m - start_distance_m) * 1000.0;
+  const int TIMEOUT_MS   = 3000;
+  const uint32_t t_start = pros::millis();
 
-    double remaining_mm = mm - traveled_mm;
+  while (true) {
+    uint32_t now = pros::millis();
+    if (now - t_start >= static_cast<uint32_t>(TIMEOUT_MS)) {
+      break;
+    }
 
+    // Distancia recorrida en METROS desde el reset de odom
+    double current_m   = odom.getTotalDistance();
+    double delta_m     = current_m - start_m;
+    traveled_mm        = delta_m * 1000.0;  // metros a mm
+    double abs_travel  = std::fabs(traveled_mm);
+    double remaining_mm = target_mm - abs_travel;
+
+    // Ventana de llegada
+    if (remaining_mm < 5.0) {
+      break;
+    }
+
+    // dt fijo de 10 ms
     double output = pid.calculate(remaining_mm, 10.0 / 1000.0);
-    int cmd = static_cast<int>(dir * output);
+    int rpm_cmd   = static_cast<int>(dir * output);
 
-    lf.move_velocity(cmd);
-    lm.move_velocity(cmd);
-    lb.move_velocity(cmd);
-    rf.move_velocity(cmd);
-    rm.move_velocity(cmd);
-    rb.move_velocity(cmd);
+    lf.move_velocity(rpm_cmd);
+    lm.move_velocity(rpm_cmd);
+    lb.move_velocity(rpm_cmd);
+    rf.move_velocity(rpm_cmd);
+    rm.move_velocity(rpm_cmd);
+    rb.move_velocity(rpm_cmd);
 
     pros::delay(10);
   }
@@ -176,38 +204,57 @@ void drive_mm_pid(double mm_target) {
   rb.move(0);
 }
 
+// ===============================
+// GIRO BASADO EN IMU
+// ===============================
+
 static double wrap_deg(double a) {
   while (a >= 180.0) a -= 360.0;
   while (a <  -180.0) a += 360.0;
   return a;
 }
 
+// Giro relativo usando heading del IMU.
+// delta_deg > 0 izquierda, < 0 derecha.
 void turn_imu_deg(double delta_deg) {
-  double start = imu_main.get_heading();
+  // Heading actual 0..360
+  double start  = imu_main.get_heading();
   double target = start + delta_deg;
 
+  // Envuelve a 0..360
   if (target >= 360.0) target -= 360.0;
   if (target <   0.0)  target += 360.0;
 
+  // PID sobre error en grados
   PID pid(2.0, 0.0, 0.25, -100.0, 100.0);
 
-  while (true) {
-    double current = imu_main.get_heading();
-    double error = wrap_deg(target - current);
+  const int TIMEOUT_MS   = 2500;
+  const uint32_t t_start = pros::millis();
 
+  while (true) {
+    uint32_t now = pros::millis();
+    if (now - t_start >= static_cast<uint32_t>(TIMEOUT_MS)) {
+      break;
+    }
+
+    double current = imu_main.get_heading();
+    double error   = wrap_deg(target - current);
+
+    // Ventana de error aceptable
     if (std::fabs(error) < 1.5) {
       break;
     }
 
     double output = pid.calculate(error, 10.0 / 1000.0);
-    int cmd = static_cast<int>(output);
+    int rpm_cmd   = static_cast<int>(output);
 
-    lf.move_velocity(cmd);
-    lm.move_velocity(cmd);
-    lb.move_velocity(cmd);
-    rf.move_velocity(-cmd);
-    rm.move_velocity(-cmd);
-    rb.move_velocity(-cmd);
+    // Lado izquierdo y derecho en sentidos opuestos
+    lf.move_velocity(rpm_cmd);
+    lm.move_velocity(rpm_cmd);
+    lb.move_velocity(rpm_cmd);
+    rf.move_velocity(-rpm_cmd);
+    rm.move_velocity(-rpm_cmd);
+    rb.move_velocity(-rpm_cmd);
 
     pros::delay(10);
   }
