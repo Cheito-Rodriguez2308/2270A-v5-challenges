@@ -101,7 +101,7 @@ void autonomous() {
 
 void opcontrol() {
   // Loop principal del driver
-  // driver_control_loop();
+  driver_control_loop();
   // Si quieres probar trayectorias o tests, puedes llamar:
-  test_autonomous();
+  // test_autonomous();
 }

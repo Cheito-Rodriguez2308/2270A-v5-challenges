@@ -22,7 +22,7 @@ pros::adi::DigitalOut piston_2('B');
 
 // Sensores
 pros::Imu      imu_main(9);
-pros::Rotation rot_main(-8);
+pros::Rotation rot_main(8);
 
 // Configura gearset, sentido y encoder
 void configure_motors() {

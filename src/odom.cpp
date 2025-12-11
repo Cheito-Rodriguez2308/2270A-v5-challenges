@@ -28,11 +28,11 @@ void Odometry::update() {
   double current_rot_deg = rot_main.get_position();
   double delta_deg       = current_rot_deg - last_rot_deg_;
 
-  const double sensor_gear_teeth = 60.0;
+  const double sensor_gear_teeth = 64.0;
   const double wheel_gear_teeth  = 36.0;
   delta_deg *= (sensor_gear_teeth / wheel_gear_teeth);
 
-  double delta_s_m = (delta_deg / 360.0) * WHEEL_CIRC_M;
+  double delta_s_m = (delta_deg / 360.0) * WHEEL_CIRC_MM;
 
   total_distance_m_ += delta_s_m;
 

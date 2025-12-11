@@ -73,12 +73,12 @@ extern const AutonCfg autonCfg;
 
 // Constantes geometricas para modelos avanzados
 
-// Diametro de la rueda de tracking en metros
-constexpr double WHEEL_DIAM_M  = 0.08255;
-constexpr double WHEEL_CIRC_M  = WHEEL_DIAM_M * 3.1415926535;
+// Diametro de la rueda de tracking en milimetros
+constexpr double WHEEL_DIAM_MM  = 82.55;
+constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535;
 
-// Ancho entre centros de ruedas en metros
-constexpr double TRACK_WIDTH_M = 0.32;
+// Ancho entre centros de ruedas en milimetros
+constexpr double TRACK_WIDTH_MM = 320.0;
 
 // Periodo de odometria
 constexpr int    ODOM_PERIOD_MS = 10;
