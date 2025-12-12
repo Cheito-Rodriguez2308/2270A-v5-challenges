@@ -3,8 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
-// Ruedas 3.75" = ~299 mm
-static constexpr double WHEEL_TRAVEL_MM = 299.0;
+// Ruedas 3.25" = ~259.3 mm
+static constexpr double WHEEL_TRAVEL_MM = 259.3;
 
 // Relación 60:36 entre rotation y rueda
 static constexpr double GEAR_RATIO_ROT_TO_WHEEL = 64.0 / 36.0;
@@ -50,6 +50,21 @@ double angle_error(double target, double current) {
 // ====================================================
 // DRIVE RECTO EXACTO COMO PYTHON
 // ====================================================
+
+static int pct_to_rpm(int pct) {
+  pct = std::clamp(pct, -100, 100);
+  // gearset 18: max aprox 200 rpm
+  return static_cast<int>(pct * 200 / 100);
+}
+
+static int apply_min_rpm(int rpm) {
+  if (rpm == 0) return 0;
+  int s = (rpm > 0) ? 1 : -1;
+  int m = std::abs(rpm);
+  m = std::max(m, 70);   // prueba 70–100
+  return s * m;
+}
+
 void drive_straight_mm(double dist_mm,
                        int base_pct,
                        double kP_heading,
@@ -105,16 +120,34 @@ void drive_straight_mm(double dist_mm,
     right_cmd = std::clamp(right_cmd, -100, 100);
 
     // Aplicar velocidad (RPM-Based)
-    lf.move_velocity(direction * left_cmd);
-    lm.move_velocity(direction * left_cmd);
-    lb.move_velocity(direction * left_cmd);
+    auto pct_to_rpm = [](int pct) {
+      pct = std::clamp(pct, -100, 100);
+      // gearset 18: max aprox 200 rpm
+      return static_cast<int>(pct * 200 / 100);
+    };
 
-    rf.move_velocity(direction * right_cmd);
-    rm.move_velocity(direction * right_cmd);
-    rb.move_velocity(direction * right_cmd);
+    // un mínimo para romper fricción en recta
+    auto apply_min = [](int rpm) {
+      if (rpm == 0) return 0;
+      int sign = (rpm > 0) ? 1 : -1;
+      int mag = std::abs(rpm);
+      mag = std::max(mag, 60); // prueba 60–90
+      return sign * mag;
+    };
+
+    int left_rpm  = apply_min_rpm(pct_to_rpm(direction * left_cmd));
+    int right_rpm = apply_min_rpm(pct_to_rpm(direction * right_cmd));
+
+    lf.move_velocity(left_rpm);
+    lm.move_velocity(left_rpm);
+    lb.move_velocity(left_rpm);
+
+    rf.move_velocity(right_rpm);
+    rm.move_velocity(right_rpm);
+    rb.move_velocity(right_rpm);
 
     pros::delay(10);
-  }
+  } 
 
   // Frenar
   lf.set_brake_mode(end_brake);

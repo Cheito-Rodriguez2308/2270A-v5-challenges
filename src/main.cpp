@@ -50,8 +50,14 @@ void initialize() {
   initialize_random_seed();
 
   // Calibrar IMU una sola vez al arrancar
-  calibrate_imu_and_odom();
-
+  static bool imu_ready = false;
+  if (!imu_ready) {
+    imu_main.reset();                 // calibra una vez al arrancar el programa
+    while (imu_main.is_calibrating()) {
+      pros::delay(20);
+    }
+    imu_ready = true;
+  }
   // Iniciar tareas
   pros::Task safetyTask(safety_task, "Safety Task");
   pros::Task odomTask(odom_task_fn, "Odom Task");

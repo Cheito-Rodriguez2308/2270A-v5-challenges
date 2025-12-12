@@ -76,6 +76,7 @@ extern const AutonCfg autonCfg;
 // Diametro de la rueda de tracking en milimetros
 constexpr double WHEEL_DIAM_MM  = 82.55;
 constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535;
+constexpr double WHEEL_CIRC_M = WHEEL_CIRC_MM / 1000.0;
 
 // Ancho entre centros de ruedas en milimetros
 constexpr double TRACK_WIDTH_MM = 320.0;

@@ -32,7 +32,7 @@ void Odometry::update() {
   const double wheel_gear_teeth  = 36.0;
   delta_deg *= (sensor_gear_teeth / wheel_gear_teeth);
 
-  double delta_s_m = (delta_deg / 360.0) * WHEEL_CIRC_MM;
+double delta_s_m = (delta_deg / 360.0) * WHEEL_CIRC_M;
 
   total_distance_m_ += delta_s_m;
 
