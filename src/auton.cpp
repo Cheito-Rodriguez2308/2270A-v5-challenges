@@ -1,53 +1,173 @@
 #include "auton.hpp"
 #include "config.hpp"
 #include "devices.hpp"
-#include "drive.hpp"
 #include "motion.hpp"
 #include "pros/apix.h"
+#include "pros/motors.h"
 #include <algorithm>
 #include <cmath>
 
 // ======================================================
-// Selección de autónomo
+// MODULO: auton (implementacion)
+// Nueva version usando SOLO:
+// - drive_straight_mm (Rotation + IMU, motion.cpp)
+// - turn_imu_deg_2stage (IMU, motion.cpp)
+// - Tramos largos: slow_down_mm = 200 a 260
+// - Tramos cortos: slow_down_mm = 120 a 160
+//
+// COMBO COAST + BRAKE:
+// - Durante el tramo: COAST (se siente humano, sin “clavar”)
+// - Al final: pulso corto de BRAKE para asentar sin quedarte en HOLD
+//
+// NOTA IMPORTANTE
+// Este auton asume que drive_straight_mm fue extendida a:
+// drive_straight_mm(dist_mm, base_pct, kP_heading, slow_down_mm, end_brake,
+//                   soft_settle_ms, brake_pulse_ms)
+// Si tu motion.hpp aun no tiene esos 2 parametros extra,
+// tienes que añadirlos o usar el wrapper que te pongo abajo.
 // ======================================================
 
+// Seleccion por defecto: auton del lado derecho
 AutonId g_auton_selected = AutonId::Right;
 
+// Nombre legible para cada auton (se usa en el HUD del brain)
 const char* auton_name(AutonId id) {
   switch (id) {
-    case AutonId::Right: return "RIGHT";
-    case AutonId::Left:  return "LEFT";
+    case AutonId::Right:  return "RIGHT";
+    case AutonId::Left:   return "LEFT";
   }
   return "UNKNOWN";
 }
 
-// ======================================================
-// Helpers internos
-// ======================================================
-
 namespace {
-  
+
   constexpr double AUTON_IDEAL_VOLTAGE = 12.6;
+
+  // Slowdowns recomendados
+  constexpr double SLOW_LONG_MM  = 240.0; // 200-260
+  constexpr double SLOW_LONG2_MM = 260.0; // para reversa larga
+  constexpr double SLOW_MED_MM   = 220.0; // 200-260
+  constexpr double SLOW_SHORT_MM = 140.0; // 120-160
+  constexpr double SLOW_TINY_MM  = 130.0; // 120-160
+
+  // Settles
+  constexpr int SOFT_SETTLE_MS = 80;
+  constexpr int BRAKE_PULSE_MS = 60;
 
   double auton_get_voltage() {
     return pros::battery::get_voltage() / 1000.0;
   }
 
   double auton_voltage_comp() {
-    double volt = auton_get_voltage();
+    const double volt = auton_get_voltage();
     if (volt <= 0.0) return 1.0;
+
     double comp = AUTON_IDEAL_VOLTAGE / volt;
-    if (comp > 1.10) comp = 1.10;
-    if (comp < 0.95) comp = 0.95;
+    if (comp > 1.20) comp = 1.20;
+    if (comp < 0.90) comp = 0.90;
     return comp;
+  }
+
+  int auton_clamp_pct(int v) {
+    if (v > 100) return 100;
+    if (v < -100) return -100;
+    return v;
+  }
+
+  int autopct(double comp, int p) {
+    return auton_clamp_pct(static_cast<int>(p * comp));
+  }
+
+  void set_drive_brake(pros::motor_brake_mode_e mode) {
+    lf.set_brake_mode(mode);
+    lm.set_brake_mode(mode);
+    lb.set_brake_mode(mode);
+    rf.set_brake_mode(mode);
+    rm.set_brake_mode(mode);
+    rb.set_brake_mode(mode);
+  }
+
+  void brake_pulse(int ms = 70) {
+    set_drive_brake(pros::E_MOTOR_BRAKE_BRAKE);
+    lf.brake(); lm.brake(); lb.brake();
+    rf.brake(); rm.brake(); rb.brake();
+    pros::delay(ms);
+    set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
   }
 
 } // namespace
 
-// ======================================================
-// Despachador principal
-// ======================================================
+// RIGHT
+static void auton_right_stage_preload(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD1_MM,
+  double FWD2_MM,
+  int convPower,
+  int intakeFwd
+);
 
+static void auton_right_stage_platform(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double REV_1_MM,
+  double BACK_MM,
+  double FWD7_MM,
+  int convPower
+);
+
+static void auton_right_stage_second_cycle(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD4_MM,
+  double FWD5_MM,
+  int convPower,
+  int intakeFwd
+);
+
+// LEFT
+static void auton_left_stage_preload(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD1_MM,
+  double FWD2_MM,
+  int convPower,
+  int intakeFwd
+);
+
+static void auton_left_stage_platform(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double REV_1_MM,
+  double BACK_MM,
+  double FWD7_MM,
+  int convPower
+);
+
+static void auton_left_stage_second_cycle(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD4_MM,
+  double FWD5_MM,
+  int convPower,
+  int intakeFwd
+);
+
+// ------------------------------------------------------
+// Despachador principal
+// ------------------------------------------------------
 void autonomous_routine() {
   switch (g_auton_selected) {
     case AutonId::Right:
@@ -64,345 +184,442 @@ void autonomous_routine() {
 
 // ======================================================
 // AUTON RIGHT
-//   Versión C++ del auton estable en Python
 // ======================================================
-
 void auton_right() {
-  const double comp = auton_voltage_comp();
-  const uint32_t t0 = pros::millis();
+  const double   comp = auton_voltage_comp();
+  const uint32_t t0   = pros::millis();
 
-  auto autopct = [comp](int p) {
-    return clamp_pct(static_cast<int>(p * comp));
-  };
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
 
-  Drive drive;
-  drive.set_brake(pros::E_MOTOR_BRAKE_HOLD);
+  const int drivePct = autopct(comp, cfg.AUTO_DRIVE_PCT);
 
-  const int drive_base = cfg.AUTO_DRIVE_PCT;
-  const int turn_base  = cfg.AUTO_TURN_PCT;
+  const int turnFast = autopct(comp, cfg.AUTO_TURN_PCT);
+  const int turnSlow = std::max(10, static_cast<int>(turnFast * 0.60));
 
-  const int drive_pct  = autopct(drive_base);
-  const int turn_fast  = autopct(turn_base);
-  const int turn_slow  = std::max(10, static_cast<int>(turn_fast * 0.60));
+  const double FWD1_MM   = 20.0 * 25.4;
+  const double FWD2_MM   = 9.5  * 25.4;
+  const double REV_1_MM  = 31.0 * 25.4;
+  const double BACK_MM   = 17.0 * 25.4;
+  const double FWD7_MM   = 8.5  * 25.4;
 
-  // Distancias en mm (igual que Python)
-  const double FWD1_MM = 15.0  * 25.4;
-  const double FWD2_MM = 21.9  * 25.4;
-  const double FWD3_MM = 10.0  * 25.4;
-  const double BACK_MM = 18.0  * 25.4;
-  const double FWD7_MM = 6.0   * 25.4;
-  const double FWD4_MM = 12.0  * 25.4;
-  const double FWD5_MM = 18.0  * 25.4;
-  const double FWD6_MM = 13.0  * 25.4;
+  const double FWD4_MM   = 7.0  * 25.4;
+  const double FWD5_MM   = 15.0 * 25.4;
 
-  const int convPower  = cfg.CONV_PCT       * 127 / 100;
-  const int intakeFwd  = cfg.INTAKE_FWD_PCT * 127 / 100;
+  const int convPower = cfg.CONV_PCT       * 127 / 100;
+  const int intakeFwd = cfg.INTAKE_FWD_PCT * 127 / 100;
 
-  // 1) Adelante 15"
-  drive_straight_mm(
-    FWD1_MM,
-    drive_pct,
-    0.40,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
+  auton_right_stage_preload(
+    comp, drivePct, turnFast, turnSlow,
+    FWD1_MM, FWD2_MM, convPower, intakeFwd
   );
-  pros::delay(100);
 
-  // 2) Giro ~43° derecha
-  //    Positivo = izquierda, negativo = derecha
-  turn_imu_deg_2stage(
-    -43.0,
-    turn_fast,
-    turn_slow,
-    0.92,
-    120
+  auton_right_stage_platform(
+    comp, drivePct, turnFast, turnSlow,
+    REV_1_MM, BACK_MM, FWD7_MM, convPower
   );
-  pros::delay(100);
 
-  // 4) Adelante ~21.9"
-  drive_straight_mm(
-    FWD2_MM,
-    drive_pct,
-    0.30,
-    120.0,
-    pros::E_MOTOR_BRAKE_HOLD
+  auton_right_stage_second_cycle(
+    comp, drivePct, turnFast, turnSlow,
+    FWD4_MM, FWD5_MM, convPower, intakeFwd
   );
-  pros::delay(80);
 
-  // 5) Giro ~42° derecha
-  turn_imu_deg_2stage(
-    -42.0,
-    turn_fast,
-    turn_slow,
-    0.92,
-    120
-  );
-  pros::delay(120);
-
-  // 6) Piston principal ON
-  piston_1.set_value(true);
-  pros::delay(320);
-
-  // 7) Conveyor REVERSE y adelante 10"
-  conveyor.move(-convPower);
-  drive_straight_mm(
-    FWD3_MM,
-    autopct(45),
-    0.30,
-    90.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(80);
-
-  // 8) Espera 2000 ms para que caigan los anillos
-  pros::delay(2000);
-
-  // 9) Adelante 6"
-  drive_straight_mm(
-    FWD7_MM,
-    drive_pct,
-    0.40,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(120);
-
-  // 10) Piston OFF
-  piston_1.set_value(false);
-
-  // 11) Reversa 18"
-  drive_straight_mm(
-    -BACK_MM,
-    drive_pct,
-    0.30,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(200);
-
-  // 13) Conveyor + Intake REVERSE (limpiar)
-  conveyor.move(-convPower);
-  intake.move(-intakeFwd);
-
-  // 12) Espera 2 s mientras limpia
-  pros::delay(2000);
-
-  // 14) Adelante 12"
-  drive_straight_mm(
-    FWD4_MM,
-    drive_pct,
-    0.30,
-    90.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(120);
-
-  // 15) Giro ~62° derecha
-  turn_imu_deg_2stage(
-    -62.0,
-    turn_fast,
-    turn_slow,
-    0.92,
-    120
-  );
-  pros::delay(120);
-
-  // 16) Adelante 18" con conveyor REVERSE
-  drive_straight_mm(
-    FWD5_MM,
-    drive_pct,
-    0.30,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(120);
-
-  // 17) Espera 2 s con conveyor REVERSE
-  pros::delay(2000);
-
-  // 18) Conveyor FORWARD y adelante 13"
-  conveyor.move(convPower);
-  drive_straight_mm(
-    FWD6_MM,
-    autopct(45),
-    0.30,
-    80.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(120);
-
-  // Fin de auton, respetar 15 s
-  uint32_t elapsed = pros::millis() - t0;
-  if (elapsed < 15000) {
-    pros::delay(15000 - elapsed);
-  }
+  const uint32_t elapsed = pros::millis() - t0;
+  if (elapsed < 15000) pros::delay(15000 - elapsed);
 
   intake.move(0);
   conveyor.move(0);
-  drive.set_percent(0, 0);
-  drive.set_brake(pros::E_MOTOR_BRAKE_COAST);
+  brake_pulse(60);
+}
+
+// ETAPA 1: salida de start y uso del preload
+static void auton_right_stage_preload(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD1_MM,
+  double FWD2_MM,
+  int convPower,
+  int intakeFwd
+) {
+  conveyor.move(-convPower);
+  pros::delay(80);
+
+  // Adelante 20" (largo)
+  drive_straight_mm(
+    FWD1_MM,
+    drivePct,
+    0.40,
+    SLOW_LONG_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(50);
+
+  // Giro 50° izquierda
+  turn_imu_deg_2stage(
+    +50.0,
+    turnFast,
+    turnSlow,
+    0.92,
+    120
+  );
+  brake_pulse(60);
+  pros::delay(70);
+
+  conveyor.move(0);
+  pros::delay(60);
+
+  // Adelante 9.5" (corto)
+  drive_straight_mm(
+    FWD2_MM,
+    drivePct,
+    0.30,
+    SLOW_SHORT_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(70);
+
+  conveyor.move(convPower);
+  intake.move(intakeFwd);
+  pros::delay(1000);
+
+  conveyor.move(0);
+  intake.move(0);
+  pros::delay(80);
+
+  (void)comp;
+}
+
+// ETAPA 2: giro a plataforma y puntuacion con piston
+static void auton_right_stage_platform(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double REV_1_MM,
+  double BACK_MM,
+  double FWD7_MM,
+  int convPower
+) {
+  // Reversa 31.0" (largo)
+  drive_straight_mm(
+    -REV_1_MM,
+    drivePct,
+    0.30,
+    SLOW_LONG2_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(70);
+
+  // Giro 90° izquierda
+  turn_imu_deg_2stage(
+    +90.0,
+    turnFast,
+    turnSlow,
+    0.92,
+    120
+  );
+  brake_pulse(70);
+  pros::delay(60);
+
+  piston_1.set_value(true);
+  pros::delay(300);
+
+  // Adelante 8.5" (corto)
+  drive_straight_mm(
+    FWD7_MM,
+    autopct(comp, cfg.AUTO_DRIVE_PCT),
+    0.40,
+    SLOW_SHORT_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+
+  conveyor.move(-convPower);
+  pros::delay(2000);
+
+  piston_1.set_value(false);
+  pros::delay(60);
+
+  // Reversa 17" (largo medio)
+  drive_straight_mm(
+    -BACK_MM,
+    drivePct,
+    0.30,
+    SLOW_MED_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+}
+
+// ETAPA 3: segundo ciclo / limpieza
+static void auton_right_stage_second_cycle(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD4_MM,
+  double FWD5_MM,
+  int convPower,
+  int intakeFwd
+) {
+  conveyor.move(-convPower);
+  intake.move(-intakeFwd);
+  pros::delay(2500);
+
+  conveyor.move(0);
+  intake.move(0);
+  pros::delay(60);
+
+  // Adelante 7" (corto)
+  drive_straight_mm(
+    FWD4_MM,
+    drivePct,
+    0.30,
+    SLOW_TINY_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(60);
+
+  // Giro 70° derecha
+  turn_imu_deg_2stage(
+    -70.0,
+    turnFast,
+    turnSlow,
+    0.92,
+    120
+  );
+  brake_pulse(60);
+  pros::delay(70);
+
+  // Adelante 15" (largo)
+  drive_straight_mm(
+    FWD5_MM,
+    drivePct,
+    0.30,
+    SLOW_MED_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+
+  (void)comp;
 }
 
 // ======================================================
 // AUTON LEFT
-//   Versión espejo simple de RIGHT
-//   Puedes tunear distancias y ángulos en práctica
 // ======================================================
-
 void auton_left() {
-  const double comp = auton_voltage_comp();
-  const uint32_t t0 = pros::millis();
+  const double   comp = auton_voltage_comp();
+  const uint32_t t0   = pros::millis();
 
-  auto autopct = [comp](int p) {
-    return clamp_pct(static_cast<int>(p * comp));
-  };
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
 
-  Drive drive;
-  drive.set_brake(pros::E_MOTOR_BRAKE_HOLD);
+  const int drivePct = autopct(comp, cfg.AUTO_DRIVE_PCT);
 
-  const int drive_base = cfg.AUTO_DRIVE_PCT;
-  const int turn_base  = cfg.AUTO_TURN_PCT;
+  const int turnFast = autopct(comp, cfg.AUTO_TURN_PCT);
+  const int turnSlow = std::max(10, static_cast<int>(turnFast * 0.60));
 
-  const int drive_pct  = autopct(drive_base);
-  const int turn_fast  = autopct(turn_base);
-  const int turn_slow  = std::max(10, static_cast<int>(turn_fast * 0.60));
+  const double FWD1_MM   = 20.0 * 25.4;
+  const double FWD2_MM   = 9.5  * 25.4;
+  const double REV_1_MM  = 31.0 * 25.4;
+  const double BACK_MM   = 17.0 * 25.4;
+  const double FWD7_MM   = 8.5  * 25.4;
 
-  // Misma geometría por ahora
-  const double FWD1_MM = 15.0  * 25.4;
-  const double FWD2_MM = 21.9  * 25.4;
-  const double FWD3_MM = 10.0  * 25.4;
-  const double BACK_MM = 18.0  * 25.4;
-  const double FWD7_MM = 6.0   * 25.4;
-  const double FWD4_MM = 12.0  * 25.4;
-  const double FWD5_MM = 18.0  * 25.4;
-  const double FWD6_MM = 13.0  * 25.4;
+  const double FWD4_MM   = 7.0  * 25.4;
+  const double FWD5_MM   = 15.0 * 25.4;
 
-  const int convPower  = cfg.CONV_PCT       * 127 / 100;
-  const int intakeFwd  = cfg.INTAKE_FWD_PCT * 127 / 100;
+  const int convPower = cfg.CONV_PCT       * 127 / 100;
+  const int intakeFwd = cfg.INTAKE_FWD_PCT * 127 / 100;
 
-  // 1) Adelante 15"
-  drive_straight_mm(
-    FWD1_MM,
-    drive_pct,
-    0.40,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
+  auton_left_stage_preload(
+    comp, drivePct, turnFast, turnSlow,
+    FWD1_MM, FWD2_MM, convPower, intakeFwd
   );
-  pros::delay(100);
 
-  // Giros izquierdo en vez de derecho
-  turn_imu_deg_2stage(
-    +43.0,
-    turn_fast,
-    turn_slow,
-    0.92,
-    120
+  auton_left_stage_platform(
+    comp, drivePct, turnFast, turnSlow,
+    REV_1_MM, BACK_MM, FWD7_MM, convPower
   );
-  pros::delay(100);
 
-  drive_straight_mm(
-    FWD2_MM,
-    drive_pct,
-    0.30,
-    120.0,
-    pros::E_MOTOR_BRAKE_HOLD
+  auton_left_stage_second_cycle(
+    comp, drivePct, turnFast, turnSlow,
+    FWD4_MM, FWD5_MM, convPower, intakeFwd
   );
+
+  const uint32_t elapsed = pros::millis() - t0;
+  if (elapsed < 15000) pros::delay(15000 - elapsed);
+
+  intake.move(0);
+  conveyor.move(0);
+  brake_pulse(60);
+}
+
+// ETAPA 1: salida de start y uso del preload
+static void auton_left_stage_preload(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD1_MM,
+  double FWD2_MM,
+  int convPower,
+  int intakeFwd
+) {
+  conveyor.move(-convPower);
   pros::delay(80);
 
+  // Adelante 20" (largo)
+  drive_straight_mm(
+    FWD1_MM,
+    drivePct,
+    0.40,
+    SLOW_LONG_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(50);
+
+  // Giro 50° derecha
   turn_imu_deg_2stage(
-    +42.0,
-    turn_fast,
-    turn_slow,
+    -50.0,
+    turnFast,
+    turnSlow,
     0.92,
     120
   );
-  pros::delay(120);
+  brake_pulse(60);
+  pros::delay(70);
+
+  conveyor.move(0);
+  pros::delay(60);
+
+  // Adelante 9.5" (corto)
+  drive_straight_mm(
+    FWD2_MM,
+    drivePct,
+    0.30,
+    SLOW_SHORT_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(70);
+
+  conveyor.move(convPower);
+  intake.move(intakeFwd);
+  pros::delay(1000);
+
+  conveyor.move(0);
+  intake.move(0);
+  pros::delay(80);
+
+  (void)comp;
+}
+
+// ETAPA 2: giro a plataforma y puntuacion con piston
+static void auton_left_stage_platform(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double REV_1_MM,
+  double BACK_MM,
+  double FWD7_MM,
+  int convPower
+) {
+  // Reversa 31.0" (largo)
+  drive_straight_mm(
+    -REV_1_MM,
+    drivePct,
+    0.30,
+    SLOW_LONG2_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(70);
+
+  // Giro 90° derecha
+  turn_imu_deg_2stage(
+    -90.0,
+    turnFast,
+    turnSlow,
+    0.92,
+    120
+  );
+  brake_pulse(70);
+  pros::delay(60);
 
   piston_1.set_value(true);
   pros::delay(320);
 
-  conveyor.move(-convPower);
-  drive_straight_mm(
-    FWD3_MM,
-    autopct(45),
-    0.30,
-    90.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(80);
-
-  pros::delay(2000);
-
+  // Adelante 8.5" (corto)
   drive_straight_mm(
     FWD7_MM,
-    drive_pct,
+    autopct(comp, cfg.AUTO_DRIVE_PCT),
     0.40,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
+    SLOW_SHORT_MM,
+    pros::E_MOTOR_BRAKE_COAST
   );
-  pros::delay(120);
-
-  piston_1.set_value(false);
-
-  drive_straight_mm(
-    -BACK_MM,
-    drive_pct,
-    0.30,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(200);
+  pros::delay(50);
 
   conveyor.move(-convPower);
-  intake.move(-intakeFwd);
   pros::delay(2000);
 
-  drive_straight_mm(
-    FWD4_MM,
-    drive_pct,
-    0.30,
-    90.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
+  piston_1.set_value(false);
   pros::delay(120);
 
+  // Reversa 17" (largo medio)
+  drive_straight_mm(
+    -BACK_MM,
+    drivePct,
+    0.30,
+    SLOW_MED_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(60);
+}
+
+// ETAPA 3: segundo ciclo / limpieza
+static void auton_left_stage_second_cycle(
+  double comp,
+  int drivePct,
+  int turnFast,
+  int turnSlow,
+  double FWD4_MM,
+  double FWD5_MM,
+  int convPower,
+  int intakeFwd
+) {
+  conveyor.move(-convPower);
+  intake.move(-intakeFwd);
+  pros::delay(2500);
+
+  conveyor.move(0);
+  intake.move(0);
+  pros::delay(60);
+
+  // Adelante 7" (corto)
+  drive_straight_mm(
+    FWD4_MM,
+    drivePct,
+    0.30,
+    SLOW_TINY_MM,
+    pros::E_MOTOR_BRAKE_COAST
+  );
+  pros::delay(60);
+
+  // Giro 70° izquierda
   turn_imu_deg_2stage(
-    +62.0,
-    turn_fast,
-    turn_slow,
+    +70.0,
+    turnFast,
+    turnSlow,
     0.92,
     120
   );
-  pros::delay(120);
+  brake_pulse(60);
+  pros::delay(70);
 
+  // Adelante 15" (largo)
   drive_straight_mm(
     FWD5_MM,
-    drive_pct,
+    drivePct,
     0.30,
-    110.0,
-    pros::E_MOTOR_BRAKE_HOLD
+    SLOW_MED_MM,
+    pros::E_MOTOR_BRAKE_COAST
   );
-  pros::delay(120);
 
-  pros::delay(2000);
-
-  conveyor.move(convPower);
-  drive_straight_mm(
-    FWD6_MM,
-    autopct(45),
-    0.30,
-    80.0,
-    pros::E_MOTOR_BRAKE_HOLD
-  );
-  pros::delay(120);
-
-  uint32_t elapsed = pros::millis() - t0;
-  if (elapsed < 15000) {
-    pros::delay(15000 - elapsed);
-  }
-
-  intake.move(0);
-  conveyor.move(0);
-  drive.set_percent(0, 0);
-  drive.set_brake(pros::E_MOTOR_BRAKE_COAST);
+  (void)comp;
 }

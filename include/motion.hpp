@@ -15,8 +15,10 @@ double angle_error(double target, double current);
 void drive_straight_mm(double dist_mm,
                        int base_pct = 50,
                        double kP_heading = 0.5,
-                       double slow_down_mm = 120.0,
-                       pros::motor_brake_mode_e end_brake = pros::E_MOTOR_BRAKE_BRAKE);
+                       double slow_down_mm = 140.0,
+                       pros::motor_brake_mode_e end_brake = pros::E_MOTOR_BRAKE_BRAKE,
+                       int soft_settle_ms = 80,
+                       int brake_pulse_ms = 60);
 
 // Giro en dos etapas usando IMU
 void turn_imu_deg_2stage(double deg_total,

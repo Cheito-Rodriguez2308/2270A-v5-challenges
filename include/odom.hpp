@@ -1,6 +1,8 @@
 #pragma once
 
 #include "pros/apix.h"
+#include <atomic>
+extern std::atomic<bool> g_odom_pause;
 
 // MODULO: Odometry con Rotation e Inertial
 

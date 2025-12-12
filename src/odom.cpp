@@ -2,6 +2,8 @@
 #include "devices.hpp"
 #include "config.hpp"
 #include <cmath>
+#include <atomic>
+std::atomic<bool> g_odom_pause{false};
 
 static constexpr double DEG2RAD = 3.1415926535 / 180.0;
 
@@ -17,7 +19,7 @@ void Odometry::reset(double x, double y, double theta_rad) {
 
   rot_main.reset_position();
 
-  last_rot_deg_     = rot_main.get_position();
+  last_rot_deg_     = (rot_main.get_position()) / 100.0;
   total_distance_m_ = 0.0;
 }
 
@@ -32,7 +34,7 @@ void Odometry::update() {
   const double wheel_gear_teeth  = 36.0;
   delta_deg *= (sensor_gear_teeth / wheel_gear_teeth);
 
-double delta_s_m = (delta_deg / 360.0) * WHEEL_CIRC_M;
+double delta_s_m = (delta_deg / 360.0) * (WHEEL_CIRC_MM / 1000.0);
 
   total_distance_m_ += delta_s_m;
 
@@ -55,7 +57,9 @@ Odometry odom;
 
 void odom_task_fn() {
   while (true) {
-    odom.update();
+    if (!g_odom_pause.load()) {
+      odom.update();
+    }
     pros::delay(10);
   }
 }

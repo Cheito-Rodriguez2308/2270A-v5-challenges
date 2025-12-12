@@ -18,13 +18,32 @@ extern Odometry odom;
 
 // Calibracion centralizada de IMU y odometria
 void calibrate_imu_and_odom() {
+  g_odom_pause.store(true);
+
+  // Detener drive por seguridad
+  lf.move(0); lm.move(0); lb.move(0);
+  rf.move(0); rm.move(0); rb.move(0);
+
   imu_main.reset();
   while (imu_main.is_calibrating()) {
     pros::delay(20);
   }
 
-  // Referencia de odometria en (0, 0, 0 rad)
   odom.reset(0.0, 0.0, 0.0);
+
+  g_odom_pause.store(false);
+}
+
+// Tarea para recalibrar IMU con boton DOWN
+void imu_button_task() {
+  while (true) {
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)) {
+      pros::lcd::print(0, "Recalibrando IMU...");
+      calibrate_imu_and_odom();
+      pros::lcd::print(0, "IMU listo");
+    }
+    pros::delay(20);
+  }
 }
 
 // Tarea de seguridad - mientras mantienes Y, frena el drive
@@ -49,15 +68,8 @@ void initialize() {
   configure_motors();
   initialize_random_seed();
 
-  // Calibrar IMU una sola vez al arrancar
-  static bool imu_ready = false;
-  if (!imu_ready) {
-    imu_main.reset();                 // calibra una vez al arrancar el programa
-    while (imu_main.is_calibrating()) {
-      pros::delay(20);
-    }
-    imu_ready = true;
-  }
+  pros::Task imuBtnTask(imu_button_task, "IMU Button");
+
   // Iniciar tareas
   pros::Task safetyTask(safety_task, "Safety Task");
   pros::Task odomTask(odom_task_fn, "Odom Task");
