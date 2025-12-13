@@ -1,13 +1,24 @@
 #include "config.hpp"
 #include "api.h"
-#include <cmath>
-#include <algorithm>
-#include <cstdlib>
 
-// ======================================================
-// TUNING GLOBAL: Cfg cfg
-// ======================================================
+// ============================================================================
+//   _______          _
+//  |__   __|        (_)
+//     | |_   _ _ __  _ _ __   __ _
+//     | | | | | '_ \| | '_ \ / _` |
+//     | | |_| | | | | | | | | (_| |
+//     |_|\__,_|_| |_|_|_| |_|\__, |
+//                             __/ |
+//                            |___/
+//
+// ============================================================================
 
+/**
+ * \brief Global robot tuning.
+ *
+ * \details Edit these values during tuning sessions.
+ * Keep them stable during competition, unless you are fixing a real issue.
+ */
 const Cfg cfg{
   75,   // DRIVE_MAX_PCT
   60,   // TURN_MAX_PCT
@@ -32,6 +43,21 @@ const Cfg cfg{
   false // LEFT_PREV
 };
 
+// ============================================================================
+//    _         _               _____  __
+//   / \  _   _| |_ ___  _ __  / ____|/ _|
+//  / _ \| | | | __/ _ \| '_ \| |    | |_
+// / ___ \ |_| | || (_) | | | | |____|  _|
+//_/   \_\__,_|\__\___/|_| |_|\_____|_|
+//
+// ============================================================================
+
+/**
+ * \brief High level auton tuning.
+ *
+ * \details Distances are written as inches converted to mm.
+ * Keep this consistent across all auton routines.
+ */
 const AutonCfg autonCfg{
   80,   // DRIVE_FAST_PCT
   45,   // DRIVE_PRECISE_PCT
@@ -48,23 +74,45 @@ const AutonCfg autonCfg{
   400   // INTAKE_SPINUP_MS
 };
 
-// Helpers
+// ============================================================================
+//   _   _      _
+//  | | | | ___| |_ __   ___ _ __ ___
+//  | |_| |/ _ \ | '_ \ / _ \ '__/ __|
+//  |  _  |  __/ | |_) |  __/ |  \__ \
+//  |_| |_|\___|_| .__/ \___|_|  |___/
+//               |_|
+//
+// ============================================================================
 
+/**
+ * \brief Clamp a percent command to [-100, 100].
+ */
 int clamp_pct(int v) {
   if (v > 100) return 100;
   if (v < -100) return -100;
   return v;
 }
 
+/**
+ * \brief Slew a value toward a target with a max step.
+ *
+ * \note If `step <= 0`, the target is returned immediately.
+ */
 int slew_step(int target, int current, int step) {
   if (step <= 0) return target;
+
   const int d = target - current;
-  if (std::abs(d) <= step) {
-    return target;
-  }
-  return current + (d > 0 ? step : -step);
+  if (std::abs(d) <= step) return target;
+
+  return current + ((d > 0) ? step : -step);
 }
 
+/**
+ * \brief Nonlinear scaling for analog input.
+ *
+ * \details This implements a curve where the mid-range is softened while
+ * still allowing full output near stick extremes.
+ */
 double AnalogInputScaling(double x, double sens) {
   const double z = 127.0 * x;
   const double a = std::exp(-std::fabs(sens) / 10.0);
@@ -72,13 +120,17 @@ double AnalogInputScaling(double x, double sens) {
   return (a + b * (1.0 - a)) * z / 127.0;
 }
 
+/**
+ * \brief Apply deadband and curve shaping to an axis.
+ */
 double shape_axis(double raw, double sens, double deadband) {
-  if (std::fabs(raw) < deadband) {
-    return 0.0;
-  }
+  if (std::fabs(raw) < deadband) return 0.0;
   return AnalogInputScaling(raw, sens);
 }
 
+/**
+ * \brief Apply slew to a target while updating the stored state.
+ */
 int apply_slew(int target, int& state, int step) {
   if (step <= 0) {
     state = target;
@@ -88,12 +140,21 @@ int apply_slew(int target, int& state, int step) {
   return state;
 }
 
+/**
+ * \brief Get battery voltage in volts.
+ */
 double get_voltage() {
   return pros::battery::get_voltage() / 1000.0;
 }
 
+/**
+ * \brief Battery voltage compensation factor around an ideal voltage.
+ *
+ * \details Output is clamped to avoid overdriving motors at low voltage.
+ */
 double voltage_comp() {
   constexpr double IDEAL_VOLTAGE = 12.6;
+
   const double v = get_voltage();
   if (v <= 0.0) return 1.0;
 

@@ -1,11 +1,21 @@
 #include "devices.hpp"
-#include "pros/motors.h"
-#include <cstdlib>
+#include "api.h"
 
-// Controlador
+
+// ============================================================================
+//   _____           _              _   _       _   _
+//  |  __ \         (_)            | | (_)     | | (_)
+//  | |  | | _____  ___  ___ ___   | |_ _  __ _| |_ _  ___  _ __  ___
+//  | |  | |/ _ \ \/ / |/ __/ _ \  | __| |/ _` | __| |/ _ \| '_ \/ __|
+//  | |__| |  __/>  <| | (_|  __/  | |_| | (_| | |_| | (_) | | | \__ \
+//  |_____/ \___/_/\_\_|\___\___|   \__|_|\__,_|\__|_|\___/|_| |_|___/
+//
+// ============================================================================
+
+//> Controller
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
-// Motores de drive
+//> Drive motors
 pros::Motor lf(11);
 pros::Motor lm(4);
 pros::Motor lb(20);
@@ -14,17 +24,35 @@ pros::Motor rf(1);
 pros::Motor rm(19);
 pros::Motor rb(10);
 
-// Subsistemas
+//> Subsystems
 pros::Motor intake(6);
 pros::Motor conveyor(7);
+
 pros::adi::DigitalOut piston_1('A');
 pros::adi::DigitalOut piston_2('B');
 
-// Sensores
+//> Sensors
 pros::Imu      imu_main(9);
 pros::Rotation rot_main(8);
 
-// Configura gearset, sentido y encoder
+// ============================================================================
+//   __  __       _                 _____            __ _
+//  |  \/  |     | |               / ____|          / _(_)
+//  | \  / | ___ | |_ ___  _ __   | |     ___  _ __| |_ _  __ _
+//  | |\/| |/ _ \| __/ _ \| '__|  | |    / _ \| '__|  _| |/ _` |
+//  | |  | | (_) | || (_) | |     | |___| (_) | |  | | | | (_| |
+//  |_|  |_|\___/ \__\___/|_|      \_____\___/|_|  |_| |_|\__, |
+//                                                         __/ |
+//                                                        |___/
+//
+// ============================================================================
+
+/**
+ * \brief Configure all motors with gearing, reversal, and encoder units.
+ *
+ * \details Standardizes motor configuration so other modules assume consistent
+ * units and direction. This prevents "magic config" scattered across code.
+ */
 void configure_motors() {
   // Left front
   lf.set_gearing(pros::E_MOTOR_GEARSET_18);
@@ -67,12 +95,32 @@ void configure_motors() {
   conveyor.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
 }
 
-// Random seed con bateria y tiempo
-void initialize_random_seed() {
-  int system_time = pros::millis();
-  int battery_mv  = pros::battery::get_voltage();
-  int battery_ma  = pros::battery::get_current();
+// ============================================================================
+//   _____                 _                 _____               _
+//  |  __ \               | |               / ____|             | |
+//  | |__) |__ _ _ __   __| | ___  _ __ ___| (___   ___  ___  __| |
+//  |  _  // _` | '_ \ / _` |/ _ \| '__/ __|\___ \ / _ \/ _ \/ _` |
+//  | | \ \ (_| | | | | (_| | (_) | |  \__ \____) |  __/  __/ (_| |
+//  |_|  \_\__,_|_| |_|\__,_|\___/|_|  |___/_____/ \___|\___|\__,_|
+//
+// ============================================================================
 
-  int seed = system_time + battery_mv + battery_ma;
+/**
+ * \brief Seed the standard C RNG using battery and time.
+ *
+ * \details This is useful if you use `rand()` anywhere for non-critical random
+ * behavior. The seed is built from:
+ * - system time in ms
+ * - battery voltage in mV
+ * - battery current in mA
+ *
+ * \note Call once at boot. Seeding repeatedly reduces randomness quality.
+ */
+void initialize_random_seed() {
+  const int system_time = pros::millis();
+  const int battery_mv  = pros::battery::get_voltage();
+  const int battery_ma  = pros::battery::get_current();
+
+  const int seed = system_time + battery_mv + battery_ma;
   std::srand(seed);
 }
