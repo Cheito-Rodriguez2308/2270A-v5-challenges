@@ -175,7 +175,7 @@ void drive_straight_mm(double dist_mm,
     if (now - t0 > timeout_ms) break;
 
     // Rotation based distance.
-    const double rot_deg = std::abs(rot_main.get_position());
+    const double rot_deg = std::abs(rot_main.get_position()) / 100.0;
     const double rot_mm  = rot_deg_to_mm(rot_deg);
 
     // Motor fallback distance for rare rotation glitches.

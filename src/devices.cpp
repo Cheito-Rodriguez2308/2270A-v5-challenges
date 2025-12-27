@@ -16,12 +16,12 @@
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
 //> Drive motors
-pros::Motor lf(11);
+pros::Motor lf(3);
 pros::Motor lm(4);
-pros::Motor lb(20);
+pros::Motor lb(5);
 
 pros::Motor rf(1);
-pros::Motor rm(19);
+pros::Motor rm(2);
 pros::Motor rb(10);
 
 //> Subsystems

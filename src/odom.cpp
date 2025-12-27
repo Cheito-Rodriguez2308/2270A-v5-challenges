@@ -48,7 +48,7 @@ void Odometry::reset(double x, double y, double theta_rad) {
 
   // Store last rotation in degrees.
   // If get_position returns centidegrees, change to: rot_main.get_position() / 100.0
-  last_rot_deg_ = rot_main.get_position();
+  last_rot_deg_ = (rot_main.get_position() / 100.0);
 
   total_distance_m_ = 0.0;
 }
@@ -63,7 +63,7 @@ void Odometry::update() {
   const double heading_rad = heading_deg * DEG2RAD;
 
   // Rotation delta in degrees.
-  const double current_rot_deg = rot_main.get_position();
+  const double current_rot_deg = rot_main.get_position() / 100.0;
   double delta_deg = current_rot_deg - last_rot_deg_;
 
   // Convert sensor rotation to wheel rotation using gear ratio.

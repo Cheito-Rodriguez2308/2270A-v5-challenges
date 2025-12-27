@@ -244,9 +244,9 @@ void auton_right() {
   const int turnSlow = std::max(10, static_cast<int>(turnFast * 0.60));
 
   // Distances (inches -> mm)
-  const double FWD1_MM   = 20.0 * 25.4;
+  const double FWD1_MM   = 40.0 * 25.4;
   const double FWD2_MM   = 9.5  * 25.4;
-  const double REV_1_MM  = 31.0 * 25.4;
+  const double REV_1_MM  = 38.0 * 25.4;
   const double BACK_MM   = 17.0 * 25.4;
   const double FWD7_MM   = 8.5  * 25.4;
 
@@ -296,7 +296,7 @@ static void auton_right_stage_preload(
   conveyor.move(-convPower);
   pros::delay(80);
 
-  // Forward 20 in. Long segment.
+  // Forward 40 in. Long segment.
   drive_straight_mm(
     FWD1_MM,
     drivePct,
@@ -308,9 +308,9 @@ static void auton_right_stage_preload(
   );
   pros::delay(50);
 
-  // Turn 50 deg left.
+  // Turn 45 deg left.
   turn_imu_deg_2stage(
-    +50.0,
+    +45.0,
     turnFast,
     turnSlow,
     0.92,
@@ -358,7 +358,7 @@ static void auton_right_stage_platform(
   double FWD7_MM,
   int convPower
 ) {
-  // Reverse 31 in. Long segment.
+  // Reverse 38 in. Long segment.
   drive_straight_mm(
     -REV_1_MM,
     drivePct,
