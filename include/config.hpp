@@ -53,6 +53,10 @@ struct Cfg {
   int TURBO_DRIVE_MAX_PCT;
   int TURBO_TURN_MAX_PCT;
 
+  // precision mode caps
+  int PREC_DRIVE_MAX_PCT;
+  int PREC_TURN_MAX_PCT;
+  
   //> Auton base caps
   int AUTO_DRIVE_PCT;
   int AUTO_TURN_PCT;

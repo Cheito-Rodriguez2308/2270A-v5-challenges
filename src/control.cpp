@@ -215,10 +215,7 @@ void driver_control_loop() {
   const int slewDriveNormal = static_cast<int>(cfg.SLEW_PCT_PER_20MS);
   const int slewTurnNormal  = static_cast<int>(cfg.SLEW_TURN_PER_20MS);
   const int slewDriveTurbo  = static_cast<int>(cfg.SLEW_PCT_PER_20MS_TURBO);
-  const int slewTurnTurbo   = static_cast<int>(cfg.SLEW_TURN_MAX_PCT_TURBO ? cfg.SLEW_TURN_PER_20MS_TURBO : cfg.SLEW_TURN_PER_20MS_TURBO);
-  // ^ keep as turbo slew variable; if you don't have SLEW_TURN_MAX_PCT_TURBO ignore, it's harmless if removed.
-  // If your cfg only has SLEW_TURN_PER_20MS_TURBO, you can simplify to:
-  // const int slewTurnTurbo = static_cast<int>(cfg.SLEW_TURN_PER_20MS_TURBO);
+  const int slewTurnTurbo   = static_cast<int>(cfg.SLEW_TURN_PER_20MS_TURBO);
 
   // Main loop period.
   constexpr int LOOP_MS = 20;

@@ -30,6 +30,7 @@ pros::Motor conveyor(7);
 
 pros::adi::DigitalOut piston_1('A');
 pros::adi::DigitalOut piston_2('B');
+pros::adi::DigitalOut piston_3('C');
 
 //> Sensors
 pros::Imu      imu_main(9);

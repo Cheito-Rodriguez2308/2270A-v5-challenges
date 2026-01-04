@@ -25,10 +25,11 @@
  * \par Controls
  *   - Left Stick (Y axis): forward and reverse
  *   - Right Stick (X axis): turn
- *   - X: precision hold (scales limits down)
- *   - RIGHT: turbo toggle
+ *   - RIGHT: precision hold (scales limits down)
+ *   - DOWN: turbo toggle
  *   - A: piston_1 toggle
- *   - LEFT: piston_2 hold
+ *   - B: piston_2 hold
+ *   - Y: piston_3 toggle
  *   - L1 L2: intake fwd and rev
  *   - R1 R2: conveyor fwd and rev
  */

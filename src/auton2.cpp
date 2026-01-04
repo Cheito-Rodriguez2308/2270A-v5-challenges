@@ -8,17 +8,13 @@
 // Hay que poner los puertos actualizados
 // motor group para simplificar el codigo
 //===========================================================================
-pros::MotorGroup leftDrive({
-  pros::Motor(11, pros::E_MOTOR_GEARSET_18, false),
-  pros::Motor(4,  pros::E_MOTOR_GEARSET_18, false),
-  pros::Motor(20, pros::E_MOTOR_GEARSET_18, false)
-});
+pros::MotorGroup leftDrive({11, 4, 20});
 
-pros::MotorGroup rightDrive({
-  pros::Motor(1,  pros::E_MOTOR_GEARSET_18, false),
-  pros::Motor(19, pros::E_MOTOR_GEARSET_18, true),   //RM invertido
-  pros::Motor(10, pros::E_MOTOR_GEARSET_18, false)
-});
+pros::MotorGroup rightDrive({1, 19, 10});
+
+pros::MotorGroup intakeGroup({6});
+
+pros::MotorGroup conveyorGroup({7});
 
 static void driveTime(int leftPct, int rightPct, int ms) {
   leftDrive.move(leftPct);
@@ -28,6 +24,14 @@ static void driveTime(int leftPct, int rightPct, int ms) {
   rightDrive.brake();
 }
 
+static void intakeTime(int intakePct, int conveyorPct, int ms) {
+  intakeGroup.move(intakePct);
+  conveyorGroup.move(conveyorPct);
+  pros::delay(ms);
+  intakeGroup.brake();
+  conveyorGroup.brake();
+}
+
 // ============================================================================
 // Grupo de motores (y, x, z )
 // y = leftDrive (velocidad)
@@ -35,14 +39,29 @@ static void driveTime(int leftPct, int rightPct, int ms) {
 // z = tiempo en ms (tiempo que se mantiene la velocidad)
 // ============================================================================
 
+// ============================================================================
+// Grupo de motores intakeTime (a, b, z)
+// a = intakeGroup (velocidad: positivo=intake, negativo=outtake)
+// b = conveyorGroup (velocidad: positivo=forward, negativo=reverse)
+// z = tiempo en ms (tiempo que se mantiene la velocidad)
+// ============================================================================
+
 void auton_tank_basic() {
+  // Drive forward while intaking
+  intakeTime(100, 100, 300);  // intake and conveyor at 100%, for 300ms
   driveTime(60,  60, 900);
+  
+  // Turn and intake
+  intakeTime(80, 80, 200);
   driveTime(50, -50, 450);
+  
+  // Drive and conveyor
+  intakeTime(60, 100, 300);
   driveTime(55,  55, 500);
 
-  // Hold al final
-  leftDrive.set_brake_modes(pros::E_MOTOR_BRAKE_HOLD);
-  rightDrive.set_brake_modes(pros::E_MOTOR_BRAKE_HOLD);
-  leftDrive.brake();
-  rightDrive.brake();
+  // Stop everything
+  intakeGroup.brake();
+  conveyorGroup.brake();
+  leftDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+  rightDrive.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
 }

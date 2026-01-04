@@ -28,7 +28,7 @@ This repository contains the full PROS C++ codebase used by Rust-Eze for driver 
 ### Pneumatics
 - Piston 1: ADI port A.
 - Piston 2: ADI port B.
-
+- PIston 3: ADI port C.
 ---
 
 ## Software architecture
