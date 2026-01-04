@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "PushBack 2270A",
+    "project_name": "rayo prueb",
     "target": "v5",
     "templates": {
       "kernel": {
@@ -592,9 +592,9 @@
       }
     },
     "upload_options": {
-      "icon": "power",
-      "description": "El proyecto para ir further beyond.",
-      "slot": 7
+      "icon": "alien",
+      "description": "prueba base",
+      "slot": 1
     },
     "use_early_access": false
   }
