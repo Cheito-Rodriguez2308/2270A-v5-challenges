@@ -16,7 +16,6 @@
  *  - 3 piston toggles (Y / B / X)
  *  - Controller HUD + match countdown rumble
  *
- * Everything else follows your 1st code style/flow (shaping, slew, pivot helper, intake, conveyor, brain LCD).
  */
 
 // ============================================================================

@@ -62,8 +62,8 @@ struct Cfg {
   int AUTO_TURN_PCT;
 
   //> Deadbands for analog sticks (raw units mapped to your shaping)
-  int DEADBAND_FWD;
-  int DEADBAND_TURN;
+  double DEADBAND_FWD;
+  double DEADBAND_TURN;
 
   //> Sensitivity shaping parameters
   double SENSITIVITY_SOFT;
