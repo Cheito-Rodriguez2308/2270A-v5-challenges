@@ -22,23 +22,35 @@
 const Cfg cfg{
   75,   // DRIVE_MAX_PCT
   60,   // TURN_MAX_PCT
+
   95,   // TURBO_DRIVE_MAX_PCT
   80,   // TURBO_TURN_MAX_PCT
+
+  45,   // PREC_DRIVE_MAX_PCT
+  35,   // PREC_TURN_MAX_PCT
+
   55,   // AUTO_DRIVE_PCT
   35,   // AUTO_TURN_PCT
+
   1,    // DEADBAND_FWD
   3,    // DEADBAND_TURN
+
   2.2,  // SENSITIVITY_SOFT
   2.5,  // SENSITIVITY_TURBO
+
   8.0,  // SLEW_PCT_PER_20MS
   0.0,  // SLEW_TURN_PER_20MS
+
   6.0,  // SLEW_PCT_PER_20MS_TURBO
   0.0,  // SLEW_TURN_PER_20MS_TURBO
+
   10,   // MIN_TURN_START
   4,    // PIVOT_FWD_DEADBAND
+
   100,  // INTAKE_FWD_PCT
   100,  // INTAKE_REV_PCT
   100,  // CONV_PCT
+
   false,// PISTON_DEFAULT
   false // LEFT_PREV
 };
