@@ -139,11 +139,28 @@ extern const AutonCfg autonCfg;
 //
 // ============================================================================
 
-//> Tracking wheel geometry (mm, m)
-// 2.75 in * 25.4 = 69.85 mm
-constexpr double WHEEL_DIAM_MM  = 69.85;
-constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535;
-constexpr double WHEEL_CIRC_M   = WHEEL_CIRC_MM / 1000.0;
+// ============================================================================
+//   Geometry
+// ============================================================================
+
+constexpr double PI = 3.1415926535;
+
+// Drive wheels (your drivetrain wheels). Keep as 3.25 in unless you change them.
+constexpr double DRIVE_WHEEL_DIAM_MM = 82.55;               // 3.25 in
+constexpr double DRIVE_WHEEL_CIRC_MM = DRIVE_WHEEL_DIAM_MM * PI;
+
+// Tracking wheel (your odom wheel). Your spec: 2.75 in omni.
+constexpr double TRACKING_WHEEL_DIAM_MM = 69.85;            // 2.75 in
+constexpr double TRACKING_WHEEL_CIRC_MM = TRACKING_WHEEL_DIAM_MM * PI;
+
+// Tracking ratio. Your spec: 1:1
+constexpr double TRACKING_GEAR_RATIO = 1.0;
+
+// Tracking scale fudge factor. Tune with tape measure.
+constexpr double TRACKING_SCALE = 1.0;
+
+// Odom safety. Max allowed step per update.
+constexpr double ODOM_MAX_STEP_M = 0.20;
 
 //> Track width between drive wheel centers (mm)
 constexpr double TRACK_WIDTH_MM = 320.0;

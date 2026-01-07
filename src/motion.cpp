@@ -1,5 +1,6 @@
 #include "motion.hpp"
 #include "devices.hpp"
+#include "config.hpp"
 #include "api.h"
 
 /**
@@ -58,17 +59,17 @@ void reset_drive_positions() {
  * \brief Rotation degrees to millimeters traveled.
  */
 double rot_deg_to_mm(double deg) {
-  const double rev_rot   = deg / 360.0;
-  const double rev_wheel = rev_rot * GEAR_RATIO_ROT_TO_WHEEL;
-  return rev_wheel * WHEEL_TRAVEL_MM;
+  const double rev_rot = deg / 360.0;
+  const double rev_wheel = rev_rot * TRACKING_GEAR_RATIO;
+  return rev_wheel * TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE;
 }
 
 /**
  * \brief Millimeters traveled to Rotation degrees.
  */
 double mm_to_rot_deg(double mm) {
-  const double rev_wheel = mm / WHEEL_TRAVEL_MM;
-  const double rev_rot   = rev_wheel / GEAR_RATIO_ROT_TO_WHEEL;
+  const double rev_wheel = mm / (TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE);
+  const double rev_rot = rev_wheel / TRACKING_GEAR_RATIO;
   return rev_rot * 360.0;
 }
 
@@ -179,7 +180,7 @@ void drive_straight_mm(double dist_mm,
 
     // Motor fallback distance for rare rotation glitches.
     const double mot_deg = std::abs(lf.get_position());
-    const double mot_mm  = (mot_deg / 360.0) * WHEEL_TRAVEL_MM;
+    const double mot_mm  = (mot_deg / 360.0) * DRIVE_WHEEL_CIRC_MM;
 
     const double d_mm = (rot_mm < 1.0 && mot_mm > 3.0) ? mot_mm : rot_mm;
 

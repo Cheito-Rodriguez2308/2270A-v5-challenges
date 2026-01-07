@@ -100,6 +100,13 @@ void imu_button_task() {
       pros::lcd::print(0, "IMU listo");
     }
     pros::delay(20);
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+      odom_zero();
+    }
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
+      odom_print_debug(1);
+}
+
   }
 }
 

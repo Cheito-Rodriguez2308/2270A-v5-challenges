@@ -1,4 +1,5 @@
 #include "drive.hpp"
+#include "config.hpp"
 #include "api.h"
 
 
@@ -23,7 +24,7 @@ namespace {
 
   // Wheel travel per 1 revolution in mm.
   // 3.25 in diameter => ~259.3 mm
-  constexpr double kWheelTravelMm = 259.3;
+  constexpr double kWheelTravelMm = DRIVE_WHEEL_CIRC_MM;
 
   // Track width in mm. Must match center to center distance of left vs right wheels.
   constexpr double kTrackWidthMm  = 320.0;

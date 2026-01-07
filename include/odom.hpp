@@ -98,11 +98,21 @@ public:
 private:
   Pose2D pose_;
 
-  // Last Rotation reading in degrees (not centidegrees).
+  // Rotation last reading in degrees (Rotation returns centidegrees by default).
   double last_rot_deg_;
+
+  // Heading unwrap state (degrees).
+  double last_heading_deg_;
+  double theta_cont_deg_;
 
   // Total traveled distance in meters.
   double total_distance_m_;
+
+  // Helpers
+  static double rot_deg();
+  static double heading_deg_unwrapped(double heading_deg,
+                                      double& last_heading_deg,
+                                      double& theta_cont_deg);
 };
 
 extern Odometry odom;
@@ -111,3 +121,7 @@ extern Odometry odom;
  * \brief Task function for running odometry continuously.
  */
 extern void odom_task_fn();
+  // Debug helpers
+  void odom_zero();
+  void odom_print_debug(int lcd_line = 1);
+
