@@ -22,9 +22,7 @@ static constexpr double PI = 3.1415926535;
 static constexpr double DEG2RAD = PI / 180.0;
 
 // Gear ratio between Rotation and wheel.
-static constexpr double SENSOR_GEAR_TEETH = 64.0;
-static constexpr double WHEEL_GEAR_TEETH  = 36.0;
-static constexpr double ROT_TO_WHEEL_RATIO = (SENSOR_GEAR_TEETH / WHEEL_GEAR_TEETH);
+static constexpr double ROT_TO_WHEEL_RATIO = 1.0; // 1:1
 
 // ============================================================================
 //   Construction
@@ -76,8 +74,10 @@ void Odometry::update() {
   total_distance_m_ += delta_s_m;
 
   // Integrate forward distance along current heading.
-  pose_.x     += delta_s_m * std::cos(heading_rad);
-  pose_.y     += delta_s_m * std::sin(heading_rad);
+  // Definición de ejes:
+  // heading_rad = 0 apunta a +Y
+  pose_.y     += delta_s_m * std::cos(heading_rad);
+  pose_.x     += delta_s_m * std::sin(heading_rad);
   pose_.theta  = heading_rad;
 
   last_rot_deg_ = current_rot_deg;

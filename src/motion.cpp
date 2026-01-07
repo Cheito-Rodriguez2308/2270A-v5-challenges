@@ -24,12 +24,11 @@
 //   Geometry and drivetrain constants
 // ============================================================================
 
-// Wheel diameter 3.25 in. Circumference in mm.
-// 3.25 * 25.4 = 82.55 mm. 82.55 * pi = 259.3 mm.
-static constexpr double WHEEL_TRAVEL_MM = 259.3;
+// Tracking wheel 2.75 in: 69.85 mm diameter
+// Travel per rev = pi * d = 219.41 mm aprox
+static constexpr double WHEEL_TRAVEL_MM = 69.85 * 3.1415926535;
 
-// Rotation to wheel ratio.
-static constexpr double GEAR_RATIO_ROT_TO_WHEEL = 64.0 / 36.0;
+static constexpr double GEAR_RATIO_ROT_TO_WHEEL = 1.0; // 1:1
 
 // Motor gearset 18 max rpm approximation.
 static constexpr int MAX_RPM_18 = 200;

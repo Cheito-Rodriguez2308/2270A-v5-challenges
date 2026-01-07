@@ -140,7 +140,8 @@ extern const AutonCfg autonCfg;
 // ============================================================================
 
 //> Tracking wheel geometry (mm, m)
-constexpr double WHEEL_DIAM_MM  = 82.55;
+// 2.75 in * 25.4 = 69.85 mm
+constexpr double WHEEL_DIAM_MM  = 69.85;
 constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535;
 constexpr double WHEEL_CIRC_M   = WHEEL_CIRC_MM / 1000.0;
 

@@ -13,8 +13,8 @@
  *
  * \par Your robot assumptions
  *   - Drive motors are configured in devices.cpp
- *   - rot_main is geared 64:36 relative to the wheel
- *   - Wheel diameter is 3.25 in
+ *   - rot_main is geared 1:1 relative to the wheel
+ *   - Wheel diameter is 2.75 in
  *
  * \par Tuning map
  *   - drive_straight_mm:
