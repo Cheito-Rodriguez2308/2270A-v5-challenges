@@ -18,14 +18,14 @@ pros::Controller master(pros::E_CONTROLLER_MASTER);
 //> Drive motors
 pros::Motor lf(3);
 pros::Motor lm(4);
-pros::Motor lb(5);
+pros::Motor lb(20);
 
 pros::Motor rf(1);
 pros::Motor rm(2);
 pros::Motor rb(10);
 
 //> Subsystems
-pros::Motor intake(6);
+pros::Motor intake(6); //outake 
 pros::Motor conveyor(7);
 
 pros::adi::DigitalOut piston_1('A');
