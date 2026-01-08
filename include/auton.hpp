@@ -47,3 +47,8 @@ void auton_right();
  * \brief Left side auton routine.
  */
 void auton_left();
+
+/**
+ * \brief Skills 60 sec autonomous
+*/
+void auton_skills_60_left();
