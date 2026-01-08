@@ -26,8 +26,8 @@ const Cfg cfg{
   95,   // TURBO_DRIVE_MAX_PCT
   80,   // TURBO_TURN_MAX_PCT
 
-  45,   // PREC_DRIVE_MAX_PCT
-  35,   // PREC_TURN_MAX_PCT
+  85,   // PREC_DRIVE_MAX_PCT
+  45,   // PREC_TURN_MAX_PCT
 
   55,   // AUTO_DRIVE_PCT
   35,   // AUTO_TURN_PCT
