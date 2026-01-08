@@ -80,9 +80,9 @@ AutonId g_auton_selected = AutonId::Right;
 
 const char* auton_name(AutonId id) {
   switch (id) {
-    case AutonId::Right:    return "RIGHT";
-    case AutonId::Left:     return "LEFT";
-    case AutonId::Skills60: return "SKILLS_60";
+    case AutonId::Right:      return "RIGHT";
+    case AutonId::Left:       return "LEFT";
+    case AutonId::Skills60:   return "SKILLS_60";
   }
   return "UNKNOWN";
 }

@@ -22,7 +22,8 @@
  */
 enum class AutonId : int {
   Right,
-  Left
+  Left,
+  Skills60
 };
 
 // Selected auton (default set in auton.cpp)
