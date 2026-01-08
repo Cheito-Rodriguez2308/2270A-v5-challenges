@@ -25,8 +25,8 @@ pros::Motor rm(2);
 pros::Motor rb(10);
 
 //> Subsystems
-pros::Motor intake(6, pros::E_MOTOR_GEARSET_18, true); //outake 
-pros::Motor conveyor(7, pros::E_MOTOR_GEARSET_18, false);
+pros::Motor intake(6); // outtake
+pros::Motor conveyor(7);
 
 pros::ADIDigitalOut piston_1('A');
 pros::ADIDigitalOut piston_2('B');

@@ -153,6 +153,9 @@ constexpr double DRIVE_WHEEL_CIRC_MM = DRIVE_WHEEL_DIAM_MM * PI;
 constexpr double WHEEL_DIAM_MM  = 50.8;
 constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535; // ~159.59 mm
 
+// Backwards-compatible names expected by odom.cpp
+constexpr double TRACKING_WHEEL_DIAM_MM = WHEEL_DIAM_MM;
+constexpr double TRACKING_WHEEL_CIRC_MM = WHEEL_CIRC_MM;
 // Tracking ratio. Your spec: 1:1
 constexpr double TRACKING_GEAR_RATIO = 1.0;
 
