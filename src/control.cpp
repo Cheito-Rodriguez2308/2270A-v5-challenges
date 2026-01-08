@@ -336,9 +336,9 @@ void driver_control_loop() {
     // Intake control
     // ------------------------------------------------------
     if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L1)) {
-      intake.move(cfg.INTAKE_REV_PCT * 127 / 100);
+      intake.move(cfg.INTAKE_FWD_PCT * 127 / 100);
     } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)) {
-      intake.move(-cfg.INTAKE_FWD_PCT * 127 / 100);
+      intake.move(cfg.INTAKE_REV_PCT * 127 / 100);
     } else {
       intake.move(0);
       intake.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
