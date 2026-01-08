@@ -87,7 +87,7 @@ void configure_motors() {
 
   // Intake
   intake.set_gearing(pros::E_MOTOR_GEARSET_18);
-  intake.set_reversed(true);
+  intake.set_reversed(false);
   intake.set_encoder_units(pros::E_MOTOR_ENCODER_DEGREES);
 
   // Conveyor
