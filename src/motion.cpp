@@ -3,6 +3,9 @@
 #include "config.hpp"
 #include "api.h"
 
+#include <algorithm>
+#include <cmath>
+
 /**
  * \file motion.cpp
  *
@@ -22,87 +25,61 @@
  */
 
 // ============================================================================
-//   Geometry and drivetrain constants
+//   _____           _
+//  |  __ \         (_)
+//  | |  | | _____  ___  ___ ___
+//  | |  | |/ _ \ \/ / |/ __/ _ \
+//  | |__| |  __/>  <| | (_|  __/
+//  |_____/ \___/_/\_\_|\___\___|
+//
+//  motion.cpp  (Rotation + IMU)  "worlds-style stable"
+// ============================================================================
+//
+// What was added vs your current file
+//  - Dynamic heading kP + angular deadband by phase (far, mid, near)
+//  - Cubic decel profile near target (ratio^3) for less overshoot
+//  - Turn speed profile + RPM slew for less zig-zag
+//  - Small safety timeouts inside turn loops
+//
+// What stayed the same
+//  - Same motion.hpp signatures
+//  - Rotation distance primary with motor fallback
+//  - Brake pulse then coast settle, end_brake from caller
 // ============================================================================
 
-// Tracking wheel: 2.0 in
-static constexpr double WHEEL_TRAVEL_MM = 50.8 * 3.1415926535; // ~159.59 mm
-
-static constexpr double GEAR_RATIO_ROT_TO_WHEEL = 1.0;         // 1:1
+// ============================================================================
+//   Geometry and drivetrain constants
+// ============================================================================
 
 // Motor gearset 18 max rpm approximation.
 static constexpr int MAX_RPM_18 = 200;
 
 // ============================================================================
-//   Reset
-// ============================================================================
-
-/**
- * \brief Zero the drive motor encoders and rotation sensor.
- */
-void reset_drive_positions() {
-  lf.tare_position();
-  lm.tare_position();
-  lb.tare_position();
-  rf.tare_position();
-  rm.tare_position();
-  rb.tare_position();
-  rot_main.reset_position();
-}
-
-// ============================================================================
-//   Conversion functions
-// ============================================================================
-
-/**
- * \brief Rotation degrees to millimeters traveled.
- */
-double rot_deg_to_mm(double deg) {
-  const double rev_rot = deg / 360.0;
-  const double rev_wheel = rev_rot * TRACKING_GEAR_RATIO;
-  return rev_wheel * TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE;
-}
-
-/**
- * \brief Millimeters traveled to Rotation degrees.
- */
-double mm_to_rot_deg(double mm) {
-  const double rev_wheel = mm / (TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE);
-  const double rev_rot = rev_wheel / TRACKING_GEAR_RATIO;
-  return rev_rot * 360.0;
-}
-
-// ============================================================================
-//   Angle helper
-// ============================================================================
-
-/**
- * \brief Signed shortest angle error in degrees in [-180, 180].
- */
-double angle_error(double target, double current) {
-  double err = target - current;
-  while (err > 180) err -= 360;
-  while (err < -180) err += 360;
-  return err;
-}
-
-// ============================================================================
 //   Internal helpers
 // ============================================================================
+
+static inline int clamp_i(int v, int lo, int hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
+
+static inline double clamp_d(double v, double lo, double hi) {
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
+}
 
 /**
  * \brief Percent command to rpm for a 200 rpm gearset.
  */
 static int pct_to_rpm(int pct) {
-  pct = std::clamp(pct, -100, 100);
+  pct = clamp_i(pct, -100, 100);
   return (pct * MAX_RPM_18) / 100;
 }
 
 /**
  * \brief Ensures enough rpm to overcome friction.
- *
- * \details Uses a higher minimum when far from target and a lower minimum
- * near the end to avoid overshoot.
  */
 static int apply_min_rpm(int rpm, double remaining_mm) {
   if (rpm == 0) return 0;
@@ -118,13 +95,94 @@ static int apply_min_rpm(int rpm, double remaining_mm) {
   return sign * mag;
 }
 
+/**
+ * \brief Slew helper. Limits rpm delta per 10 ms.
+ */
+static int slew_to(int target, int current, int step) {
+  const int d = target - current;
+  if (std::abs(d) <= step) return target;
+  return current + ((d > 0) ? step : -step);
+}
+
+/**
+ * \brief Set brake mode on all drive motors.
+ */
+static void set_drive_brake(pros::motor_brake_mode_e mode) {
+  lf.set_brake_mode(mode);
+  lm.set_brake_mode(mode);
+  lb.set_brake_mode(mode);
+  rf.set_brake_mode(mode);
+  rm.set_brake_mode(mode);
+  rb.set_brake_mode(mode);
+}
+
+/**
+ * \brief Output RPM to drivetrain (left, right).
+ */
+static void set_drive_rpm(int l_rpm, int r_rpm) {
+  lf.move_velocity(l_rpm);
+  lm.move_velocity(l_rpm);
+  lb.move_velocity(l_rpm);
+
+  rf.move_velocity(r_rpm);
+  rm.move_velocity(r_rpm);
+  rb.move_velocity(r_rpm);
+}
+
+/**
+ * \brief Normalize heading to [0, 360).
+ */
+static double norm360(double a) {
+  while (a >= 360.0) a -= 360.0;
+  while (a < 0.0) a += 360.0;
+  return a;
+}
+
+// ============================================================================
+//   Reset
+// ============================================================================
+
+void reset_drive_positions() {
+  lf.tare_position();
+  lm.tare_position();
+  lb.tare_position();
+  rf.tare_position();
+  rm.tare_position();
+  rb.tare_position();
+  rot_main.reset_position();
+}
+
+// ============================================================================
+//   Conversion functions
+// ============================================================================
+
+double rot_deg_to_mm(double deg) {
+  const double rev_rot = deg / 360.0;
+  const double rev_wheel = rev_rot * TRACKING_GEAR_RATIO;
+  return rev_wheel * TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE;
+}
+
+double mm_to_rot_deg(double mm) {
+  const double rev_wheel = mm / (TRACKING_WHEEL_CIRC_MM * TRACKING_SCALE);
+  const double rev_rot = rev_wheel / TRACKING_GEAR_RATIO;
+  return rev_rot * 360.0;
+}
+
+// ============================================================================
+//   Angle helper
+// ============================================================================
+
+double angle_error(double target, double current) {
+  double err = target - current;
+  while (err > 180) err -= 360;
+  while (err < -180) err += 360;
+  return err;
+}
+
 // ============================================================================
 //   Drive straight
 // ============================================================================
 
-/**
- * \brief Drive straight using Rotation for distance and IMU for heading.
- */
 void drive_straight_mm(double dist_mm,
                        int base_pct,
                        double kP_heading,
@@ -139,35 +197,21 @@ void drive_straight_mm(double dist_mm,
   const double target_mm = std::abs(dist_mm);
 
   // During motion. Always COAST for smoother feel.
-  lf.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  lm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  lb.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rf.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rb.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
 
   // Reference heading for heading hold.
   const double start_heading = imu_main.get_heading();
 
   // Timeout. Prevents hanging on stalls.
   const uint32_t t0 = pros::millis();
-  const double est_speed_mm_s = std::max(180.0, (std::abs(base_pct) / 100.0) * 350.0);
+  const double est_speed_mm_s = std::max(200.0, (std::abs(base_pct) / 100.0) * 600.0);
   const uint32_t timeout_ms =
-    static_cast<uint32_t>(std::max(2000.0, (target_mm / est_speed_mm_s + 1.0) * 1000.0));
+    static_cast<uint32_t>(std::max(2000.0, (target_mm / est_speed_mm_s + 1.2) * 1000.0));
 
-  // RPM slew state. Smooth start and stop.
+  // RPM slew state.
   int left_rpm_cmd  = 0;
   int right_rpm_cmd = 0;
   const int RPM_SLEW_PER_10MS = 18;
-
-  /**
-   * \brief Slew helper. Limits rpm delta per 10 ms.
-   */
-  auto slew_to = [&](int target, int current) {
-    const int d = target - current;
-    if (std::abs(d) <= RPM_SLEW_PER_10MS) return target;
-    return current + ((d > 0) ? RPM_SLEW_PER_10MS : -RPM_SLEW_PER_10MS);
-  };
 
   while (true) {
     const uint32_t now = pros::millis();
@@ -186,118 +230,147 @@ void drive_straight_mm(double dist_mm,
     const double remaining = target_mm - d_mm;
     if (remaining <= 2.0) break;
 
-    // Heading correction.
-    const double heading = imu_main.get_heading();
-    const double err = angle_error(start_heading, heading);
+    // Phase based tuning (worlds style).
+    const double phase = (target_mm > 1.0) ? (remaining / target_mm) : 0.0;
 
-    double trim = kP_heading * err;
-    trim = std::clamp(trim, -15.0, 15.0);
+    double tol_deg = 2.0;
+    double kp_use  = kP_heading;
 
-    // Slowdown profile.
-    int pct = base_pct;
-    if (slow_down_mm > 0.0 && remaining < slow_down_mm) {
-      pct = std::max(35, static_cast<int>(std::round(base_pct * (remaining / slow_down_mm))));
+    if (phase > 0.60) {
+      tol_deg = 4.0;
+      kp_use  = kP_heading * 0.60;
+    } else if (phase > 0.30) {
+      tol_deg = 2.0;
+      kp_use  = kP_heading;
+    } else {
+      tol_deg = 1.0;
+      kp_use  = kP_heading * 1.20;
     }
 
-    int left_pct  = static_cast<int>(std::round(pct - trim));
-    int right_pct = static_cast<int>(std::round(pct + trim));
+    // Heading correction with deadband.
+    const double heading = imu_main.get_heading();
+    double err = angle_error(start_heading, heading);
+    if (std::abs(err) < tol_deg) err = 0.0;
 
-    left_pct  = std::clamp(left_pct,  -100, 100);
-    right_pct = std::clamp(right_pct, -100, 100);
+    double trim = kp_use * err;
+    trim = clamp_d(trim, -15.0, 15.0);
+
+    // Cubic slowdown profile.
+    int pct = base_pct;
+    if (slow_down_mm > 0.0 && remaining < slow_down_mm) {
+      double ratio = clamp_d(remaining / slow_down_mm, 0.0, 1.0);
+      ratio = ratio * ratio * ratio;
+      pct = std::max(35, static_cast<int>(std::lround(base_pct * ratio)));
+    }
+
+    int left_pct  = static_cast<int>(std::lround(pct - trim));
+    int right_pct = static_cast<int>(std::lround(pct + trim));
+
+    left_pct  = clamp_i(left_pct,  -100, 100);
+    right_pct = clamp_i(right_pct, -100, 100);
 
     // Convert to rpm and apply minimum rpm.
     const int left_target_rpm  = apply_min_rpm(pct_to_rpm(dir * left_pct),  remaining);
     const int right_target_rpm = apply_min_rpm(pct_to_rpm(dir * right_pct), remaining);
 
     // Slew to targets.
-    left_rpm_cmd  = slew_to(left_target_rpm,  left_rpm_cmd);
-    right_rpm_cmd = slew_to(right_target_rpm, right_rpm_cmd);
+    left_rpm_cmd  = slew_to(left_target_rpm,  left_rpm_cmd,  RPM_SLEW_PER_10MS);
+    right_rpm_cmd = slew_to(right_target_rpm, right_rpm_cmd, RPM_SLEW_PER_10MS);
 
-    // Output.
-    lf.move_velocity(left_rpm_cmd);
-    lm.move_velocity(left_rpm_cmd);
-    lb.move_velocity(left_rpm_cmd);
-
-    rf.move_velocity(right_rpm_cmd);
-    rm.move_velocity(right_rpm_cmd);
-    rb.move_velocity(right_rpm_cmd);
-
+    set_drive_rpm(left_rpm_cmd, right_rpm_cmd);
     pros::delay(10);
   }
 
   // Ramp down to zero.
   for (int i = 0; i < 8; i++) {
-    left_rpm_cmd  = slew_to(0, left_rpm_cmd);
-    right_rpm_cmd = slew_to(0, right_rpm_cmd);
-
-    lf.move_velocity(left_rpm_cmd);
-    lm.move_velocity(left_rpm_cmd);
-    lb.move_velocity(left_rpm_cmd);
-
-    rf.move_velocity(right_rpm_cmd);
-    rm.move_velocity(right_rpm_cmd);
-    rb.move_velocity(right_rpm_cmd);
-
+    left_rpm_cmd  = slew_to(0, left_rpm_cmd,  RPM_SLEW_PER_10MS);
+    right_rpm_cmd = slew_to(0, right_rpm_cmd, RPM_SLEW_PER_10MS);
+    set_drive_rpm(left_rpm_cmd, right_rpm_cmd);
     pros::delay(10);
   }
 
   // Brake pulse. Seats the robot without HOLD.
-  lf.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  lm.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  lb.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  rf.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  rm.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
-  rb.set_brake_mode(pros::E_MOTOR_BRAKE_BRAKE);
+  set_drive_brake(pros::E_MOTOR_BRAKE_BRAKE);
+  set_drive_rpm(0, 0);
 
-  lf.move_velocity(0);
-  lm.move_velocity(0);
-  lb.move_velocity(0);
-  rf.move_velocity(0);
-  rm.move_velocity(0);
-  rb.move_velocity(0);
+  if (brake_pulse_ms > 0) pros::delay(brake_pulse_ms);
 
-  if (brake_pulse_ms > 0) {
-    pros::delay(brake_pulse_ms);
-  }
-
-  // Coast settle. Prevents harsh stop feel.
-  lf.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  lm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  lb.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rf.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rm.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-  rb.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
-
-  if (soft_settle_ms > 0) {
-    pros::delay(soft_settle_ms);
-  }
+  // Coast settle.
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
+  if (soft_settle_ms > 0) pros::delay(soft_settle_ms);
 
   // Final brake mode for the caller.
-  lf.set_brake_mode(end_brake);
-  lm.set_brake_mode(end_brake);
-  lb.set_brake_mode(end_brake);
-  rf.set_brake_mode(end_brake);
-  rm.set_brake_mode(end_brake);
-  rb.set_brake_mode(end_brake);
-
-  // Only apply an explicit brake when final mode is not COAST.
+  set_drive_brake(end_brake);
   if (end_brake != pros::E_MOTOR_BRAKE_COAST) {
-    lf.brake();
-    lm.brake();
-    lb.brake();
-    rf.brake();
-    rm.brake();
-    rb.brake();
+    lf.brake(); lm.brake(); lb.brake();
+    rf.brake(); rm.brake(); rb.brake();
   }
 }
 
 // ============================================================================
 //   Turn in two stages
 // ============================================================================
+//
+// Goal
+//  - No zig-zag near the end
+//  - Speed falls as |error| falls
+//  - RPM slew keeps the turn smooth
+//
+// Tuning
+//  - kV controls how fast command rises with error
+//  - min_pct prevents stall
+//  - stop tolerances decide when each stage ends
+// ============================================================================
 
-/**
- * \brief Turn using IMU. Stage 1 does most of the angle. Stage 2 finishes slowly.
- */
+static void turn_to_heading_profile(double target,
+                                   int max_pct,
+                                   int min_pct,
+                                   double stop_tol_deg,
+                                   uint32_t timeout_ms)
+{
+  max_pct = clamp_i(max_pct, 10, 100);
+  min_pct = clamp_i(min_pct,  6, max_pct);
+
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
+
+  const uint32_t t0 = pros::millis();
+
+  int l_cmd = 0;
+  int r_cmd = 0;
+  const int RPM_SLEW_PER_10MS = 20;
+
+  while (true) {
+    if (pros::millis() - t0 > timeout_ms) break;
+
+    const double cur = imu_main.get_heading();
+    const double err = angle_error(target, cur);
+    if (std::abs(err) <= stop_tol_deg) break;
+
+    // Speed profile.
+    const double kV = 1.2;
+    double cmd_pct = kV * std::abs(err);
+    cmd_pct = clamp_d(cmd_pct, static_cast<double>(min_pct), static_cast<double>(max_pct));
+
+    const int sign = (err > 0.0) ? 1 : -1;
+    const int rpm = pct_to_rpm(sign * static_cast<int>(std::lround(cmd_pct)));
+
+    const int l_target =  rpm;
+    const int r_target = -rpm;
+
+    l_cmd = slew_to(l_target, l_cmd, RPM_SLEW_PER_10MS);
+    r_cmd = slew_to(r_target, r_cmd, RPM_SLEW_PER_10MS);
+
+    set_drive_rpm(l_cmd, r_cmd);
+    pros::delay(10);
+  }
+
+  // Small settle stop.
+  set_drive_brake(pros::E_MOTOR_BRAKE_BRAKE);
+  set_drive_rpm(0, 0);
+  pros::delay(60);
+  set_drive_brake(pros::E_MOTOR_BRAKE_COAST);
+}
+
 void turn_imu_deg_2stage(double deg_total,
                          int fast_pct,
                          int slow_pct,
@@ -305,70 +378,33 @@ void turn_imu_deg_2stage(double deg_total,
                          int settle_ms)
 {
   const double start = imu_main.get_heading();
-  double target_1 = start + deg_total * split;
-  double target_2 = start + deg_total;
 
-  /**
-   * \brief Normalize heading to [0, 360).
-   */
-  auto norm = [&](double a) {
-    while (a >= 360) a -= 360;
-    while (a < 0) a += 360;
-    return a;
-  };
+  split = clamp_d(split, 0.50, 0.98);
 
-  target_1 = norm(target_1);
-  target_2 = norm(target_2);
+  const double target_1 = norm360(start + deg_total * split);
+  const double target_2 = norm360(start + deg_total);
 
-  // Stage 1.
-  while (true) {
-    const double cur = imu_main.get_heading();
-    const double err = angle_error(target_1, cur);
-    if (std::abs(err) < 1.5) break;
+  // Stage 1: faster, looser tol.
+  turn_to_heading_profile(
+    target_1,
+    fast_pct,
+    std::max(10, slow_pct),
+    1.6,
+    2400
+  );
 
-    const int sign = (err > 0) ? 1 : -1;
-    const int cmd_rpm = pct_to_rpm(sign * fast_pct);
+  if (settle_ms > 0) pros::delay(settle_ms);
 
-    lf.move_velocity(cmd_rpm);
-    lm.move_velocity(cmd_rpm);
-    lb.move_velocity(cmd_rpm);
+  // Stage 2: slower, tighter tol.
+  turn_to_heading_profile(
+    target_2,
+    std::max(12, slow_pct),
+    8,
+    1.0,
+    2400
+  );
 
-    rf.move_velocity(-cmd_rpm);
-    rm.move_velocity(-cmd_rpm);
-    rb.move_velocity(-cmd_rpm);
-
-    pros::delay(10);
-  }
-
-  if (settle_ms > 0) {
-    pros::delay(settle_ms);
-  }
-
-  // Stage 2.
-  while (true) {
-    const double cur = imu_main.get_heading();
-    const double err = angle_error(target_2, cur);
-    if (std::abs(err) < 1.0) break;
-
-    const int sign = (err > 0) ? 1 : -1;
-    const int cmd_rpm = pct_to_rpm(sign * slow_pct);
-
-    lf.move_velocity(cmd_rpm);
-    lm.move_velocity(cmd_rpm);
-    lb.move_velocity(cmd_rpm);
-
-    rf.move_velocity(-cmd_rpm);
-    rm.move_velocity(-cmd_rpm);
-    rb.move_velocity(-cmd_rpm);
-
-    pros::delay(10);
-  }
-
-  // Stop.
-  lf.brake();
-  lm.brake();
-  lb.brake();
-  rf.brake();
-  rm.brake();
-  rb.brake();
+  // Final stop feel.
+  lf.brake(); lm.brake(); lb.brake();
+  rf.brake(); rm.brake(); rb.brake();
 }
