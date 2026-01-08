@@ -149,9 +149,9 @@ constexpr double PI = 3.1415926535;
 constexpr double DRIVE_WHEEL_DIAM_MM = 82.55;               // 3.25 in
 constexpr double DRIVE_WHEEL_CIRC_MM = DRIVE_WHEEL_DIAM_MM * PI;
 
-// Tracking wheel (your odom wheel). Your spec: 2.75 in omni.
-constexpr double TRACKING_WHEEL_DIAM_MM = 69.85;            // 2.75 in
-constexpr double TRACKING_WHEEL_CIRC_MM = TRACKING_WHEEL_DIAM_MM * PI;
+// Tracking wheel: 2.0 in
+constexpr double WHEEL_DIAM_MM  = 50.8;
+constexpr double WHEEL_CIRC_MM  = WHEEL_DIAM_MM * 3.1415926535; // ~159.59 mm
 
 // Tracking ratio. Your spec: 1:1
 constexpr double TRACKING_GEAR_RATIO = 1.0;
