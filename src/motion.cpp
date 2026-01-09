@@ -183,13 +183,13 @@ double angle_error(double target, double current) {
 //   Drive straight
 // ============================================================================
 
-void drive_straight_mm(double dist_mm,
-                       int base_pct,
-                       double kP_heading,
-                       double slow_down_mm,
-                       pros::motor_brake_mode_e end_brake,
-                       int soft_settle_ms,
-                       int brake_pulse_ms)
+  void drive_straight_mm(double dist_mm,
+                        int base_pct,
+                        double kP_heading,
+                        double slow_down_mm,
+                        pros::motor_brake_mode_e end_brake,
+                        int soft_settle_ms,
+                        int brake_pulse_ms)
 {
   reset_drive_positions();
 
@@ -222,12 +222,17 @@ void drive_straight_mm(double dist_mm,
     const double rot_mm  = rot_deg_to_mm(rot_deg);
 
     // Motor fallback distance for rare rotation glitches.
-    const double mot_deg = std::abs(lf.get_position());
+    const double mot_deg = std::abs(rot_main.get_position());
     const double mot_mm  = (mot_deg / 360.0) * DRIVE_WHEEL_CIRC_MM;
 
-    const double d_mm = (rot_mm < 1.0 && mot_mm > 3.0) ? mot_mm : rot_mm;
+    // const double d_mm = (rot_mm < 1.0 && mot_mm > 3.0) ? mot_mm : rot_mm;
+    const double d_mm = rot_mm;
+    if (d_mm >= target_mm) break;
 
     const double remaining = target_mm - d_mm;
+    pros::lcd::print(1, "Target: %.2f", target_mm);
+    pros::lcd::print(2, "Driven: %.2f", d_mm);
+    pros::lcd::print(3, "Remaining: %.2f", remaining);
     if (remaining <= 2.0) break;
 
     // Phase based tuning (worlds style).

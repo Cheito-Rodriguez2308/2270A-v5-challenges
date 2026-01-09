@@ -6,6 +6,7 @@
 #include "auton.hpp"
 #include "motion.hpp"
 #include "odom.hpp"
+#include "pros/misc.h"
 #include "test_auton.hpp"
 
 /**
@@ -111,15 +112,15 @@ void imu_button_task() {
 }
 
 /**
- * \brief Task. Safety brake while holding Y.
+ * \brief Task. Safety brake while holding A.
  *
  * \details
- *   - Brakes all drive motors while Y is held
+ *   - Brakes all drive motors while A is held
  *   - Useful during bench tests and debugging
  */
 void safety_task() {
   while (true) {
-    if (master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)) {
+    while (master.get_digital(pros::E_CONTROLLER_DIGITAL_A)) {
       lf.brake();
       lm.brake();
       lb.brake();
@@ -211,9 +212,9 @@ void autonomous() {
  * \brief PROS operator control hook.
  */
 void opcontrol() {
-  driver_control_loop();
+  // driver_control_loop();
 
   // For quick tests, call test_autonomous() instead of driver loop,
   // or temporarily comment the driver loop and run tests here.
-  // test_autonomous();
+  test_autonomous();
 }
