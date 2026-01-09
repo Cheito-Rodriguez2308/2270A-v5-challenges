@@ -7,6 +7,7 @@
 #include "motion.hpp"
 #include "odom.hpp"
 #include "pros/misc.h"
+#include "auton_kevin.hpp"
 #include "test_auton.hpp"
 
 /**
@@ -205,8 +206,7 @@ void competition_initialize() {
  * \brief PROS autonomous hook.
  */
 void autonomous() {
-  autonomous_routine();
-}
+  auton_kevin::autonomous_routine_kevin();}
 
 /**
  * \brief PROS operator control hook.

@@ -244,8 +244,8 @@ void auton_right() {
   const int turnSlow = std::max(10, static_cast<int>(turnFast * 0.60));
 
   // Distances (inches -> mm)
-  const double FWD1_MM   = 40.0 * 25.4;
-  const double FWD2_MM   = 9.5  * 25.4;
+  const double FWD1_MM   = 50.0 * 25.4;
+  const double FWD2_MM   = 3.5  * 25.4;
   const double REV_1_MM  = 38.0 * 25.4;
   const double BACK_MM   = 17.0 * 25.4;
   const double FWD7_MM   = 8.5  * 25.4;
@@ -310,7 +310,7 @@ static void auton_right_stage_preload(
 
   // Turn 45 deg left.
   turn_imu_deg_2stage(
-    -45.0,
+    -110.0,
     turnFast,
     turnSlow,
     0.92,
