@@ -212,9 +212,9 @@ void autonomous() {
  * \brief PROS operator control hook.
  */
 void opcontrol() {
-  // driver_control_loop();
+  driver_control_loop();
 
   // For quick tests, call test_autonomous() instead of driver loop,
   // or temporarily comment the driver loop and run tests here.
-  test_autonomous();
+  // test_autonomous();
 }
