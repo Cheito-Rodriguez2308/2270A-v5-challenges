@@ -29,7 +29,7 @@
  *
  * \details
  *   - mode: 0 normal, 1 precision, 2 turbo
- *   - p1/p2/p3: piston states persist across loop
+ *   - p1/p2/p3/p4: piston states persist across loop
  *   - slew values store ramped commands for forward and turn
  *   - prev button states implement rising edge toggles
  */
@@ -41,6 +41,7 @@ struct DriverState {
   bool p1_state; // piston_1
   bool p2_state; // piston_2
   bool p3_state; // piston_3
+  bool p4_state; // piston_4
 
   int f_slew;
   int t_slew;
@@ -60,12 +61,14 @@ struct DriverState {
   bool y_prev;
   bool b_prev;
   bool x_prev;
+  bool a_prev;
 
   DriverState()
     : mode(0),
       p1_state(cfg.PISTON_DEFAULT),
       p2_state(false),
       p3_state(false),
+      p4_state(false),
       f_slew(0),
       t_slew(0),
       f_target(0),
@@ -183,6 +186,7 @@ void pre_auton() {
   piston_1.set_value(cfg.PISTON_DEFAULT);
   piston_2.set_value(false);
   piston_3.set_value(false);
+  piston_4.set_value(false);
 }
 
 // ============================================================================
@@ -205,6 +209,7 @@ void driver_control_loop() {
   piston_1.set_value(s.p1_state);
   piston_2.set_value(s.p2_state);
   piston_3.set_value(s.p3_state);
+  piston_4.set_value(s.p4_state);
 
   // Convert deadbands from percent integer to [-1, 1] scale.
   const double deadbandFwd  = cfg.DEADBAND_FWD  / 100.0;
@@ -359,7 +364,7 @@ void driver_control_loop() {
     }
 
     // ------------------------------------------------------
-    // Pistons toggles (Y/B/X)
+    // Pistons toggles (Y/B/X/A)
     // ------------------------------------------------------
     const bool y_now = master.get_digital(pros::E_CONTROLLER_DIGITAL_Y);
     if (y_now && !s.y_prev) {
@@ -393,6 +398,17 @@ void driver_control_loop() {
       hud_pause_until_ms = pros::millis() + 350;
     }
     s.x_prev = x_now;
+
+    const bool a_now = master.get_digital(pros::E_CONTROLLER_DIGITAL_A);
+    if (a_now && !s.a_prev) {
+      s.p4_state = !s.p4_state;
+      piston_4.set_value(s.p4_state);
+      master.rumble("....");
+      master.clear_line(1);
+      master.set_text(1, 0, s.p4_state ? "Piston4 ON" : "Piston4 OFF");
+      hud_pause_until_ms = pros::millis() + 350;
+    }
+    s.a_prev = a_now;
 
     // ------------------------------------------------------
     // Brain LCD HUD update (mode + voltage/comp)
@@ -440,7 +456,8 @@ void driver_control_loop() {
         remaining_s,
         s.p1_state,
         s.p2_state,
-        s.p3_state
+        s.p3_state,
+        s.p4_state
       );
 
       last_hud_ms = now_ms;
