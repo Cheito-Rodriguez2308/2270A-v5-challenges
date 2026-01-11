@@ -54,6 +54,7 @@ extern pros::Motor conveyor;
 extern pros::ADIDigitalOut piston_1;
 extern pros::ADIDigitalOut piston_2;
 extern pros::ADIDigitalOut piston_3;
+extern pros::ADIDigitalOut piston_4;
 
 //> Sensors
 extern pros::Imu      imu_main;
