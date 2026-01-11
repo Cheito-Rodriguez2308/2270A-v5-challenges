@@ -1,4 +1,5 @@
 #include "control.hpp"
+#include "devices.hpp"
 #include "api.h"
 
 #include <algorithm>
@@ -117,7 +118,8 @@ namespace {
                                    double remaining_s,
                                    bool p1,
                                    bool p2,
-                                   bool p3) {
+                                   bool p3,
+                                   bool p4) {
     int bat = pros::battery::get_capacity();
 
     char timeLabel[16];
