@@ -36,8 +36,10 @@ AutonId g_auton_selected = AutonId::Right;
 
 const char* auton_name(AutonId id) {
   switch (id) {
-    case AutonId::Right:  return "RIGHT";
-    case AutonId::Left:   return "LEFT";
+    case AutonId::Right:                return "RIGHT";
+    case AutonId::Left:                 return "LEFT";
+    case AutonId::Auton_Kevin_IZQ:      return "KEVIN_MATCH";
+    case AutonId::Auton_Kevin_SKILLS_IZQ:return "KEVIN_SKILLS";
   }
   return "UNKNOWN";
 }
@@ -216,9 +218,21 @@ void autonomous_routine() {
     case AutonId::Right:
       auton_right();
       break;
+
     case AutonId::Left:
       auton_left();
       break;
+
+    case AutonId::Auton_Kevin_IZQ:
+      auton_kevin::set_mode(auton_kevin::Mode::MATCH_IZQ);
+      auton_kevin::autonomous_routine_kevin();
+      break;
+
+    case AutonId::Auton_Kevin_SKILLS_IZQ:
+      auton_kevin::set_mode(auton_kevin::Mode::SKILLS_IZQ);
+      auton_kevin::autonomous_routine_kevin();
+      break;
+
     default:
       auton_right();
       break;

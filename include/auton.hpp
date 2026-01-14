@@ -23,7 +23,8 @@
 enum class AutonId : int {
   Right,
   Left,
-  Skills60
+  Auton_Kevin_IZQ,
+  Auton_Kevin_SKILLS_IZQ
 };
 
 // Selected auton (default set in auton.cpp)
@@ -50,6 +51,31 @@ void auton_right();
 void auton_left();
 
 /**
- * \brief Skills 60 sec autonomous
-*/
-void auton_skills_60_left();
+ * auton_kevin
+ *
+ * Drop-in replacement for your auton.cpp interface.
+ *
+ * main.cpp change:
+ *   - replace autonomous_routine() with autonomous_routine_kevin()
+ */
+
+namespace auton_kevin {
+
+// Which routine to run inside autonomous_routine_kevin()
+enum class Mode {
+  MATCH_IZQ,        // from auton_izq
+  SKILLS_IZQ        // from auton_skills_izq
+};
+
+// Set from GUI or from competition_initialize()
+void set_mode(Mode m);
+Mode get_mode();
+
+// This is the function name you will call from PROS main.cpp
+void autonomous_routine_kevin();
+
+// Optional direct entry points
+void routine_match_izq();
+void routine_skills_izq();
+
+} // namespace auton_kevin

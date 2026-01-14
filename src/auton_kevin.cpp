@@ -1,6 +1,4 @@
-// src/auton_kevin.cpp
-#include "auton_kevin.hpp"
-
+#include "auton.hpp"
 #include "api.h"
 #include "config.hpp"
 #include "devices.hpp"
@@ -13,7 +11,6 @@ static pros::Motor &Intake   = intake;
 static pros::Motor &Conveyor = conveyor;
 
 static pros::adi::DigitalOut &PistonA = piston_1;
-static pros::adi::DigitalOut &PistonB = piston_2;
 
 // ---------------- Units helpers ----------------
 constexpr double IN_TO_MM = 25.4;
@@ -79,77 +76,118 @@ void routine_match_izq() {
   const int drive_base = 50;
   const int turn_base  = 35;
 
-  const int FWD1_MM = mm_from_in(15.0);
-  const int FWD2_MM = mm_from_in(21.8);
-  const int FWD3_MM = mm_from_in(10.0);
-  const int BACK_MM = mm_from_in(18.0);
+  const int FWD1_MM = mm_from_in(29.0);
+  const int FWD2_MM = mm_from_in(12);
+  const int FWD3_MM = mm_from_in(1.0);
+  const int BACK_MM = mm_from_in(34.0);
   const int FWD7_MM = mm_from_in(6.0);
-  const int FWD4_MM = mm_from_in(12.0);
+  const int FWD4_MM = mm_from_in(34.0);
   const int FWD5_MM = mm_from_in(18.0);
-  const int FWD6_MM = mm_from_in(13.0);
+  const int FWD6_MM = mm_from_in(34.0);
 
   PistonA.set_value(false);
-  PistonB.set_value(false);
 
-  drive_straight_mm(FWD1_MM, autopct(drive_base, comp), 0.40, 110, pros::E_MOTOR_BRAKE_HOLD);
+  drive_straight_mm(FWD1_MM,
+                   autopct(drive_base, comp), 
+                   0.40, 
+                   110, 
+                   pros::E_MOTOR_BRAKE_HOLD);
   pros::delay(100);
 
-  turn_imu_deg_2stage(-43,
+  turn_imu_deg_2stage(-88,
                       autopct(turn_base, comp),
                       autopct(static_cast<int>(turn_base * 0.60), comp),
                       0.92,
                       120);
   pros::delay(100);
-
-  drive_straight_mm(FWD2_MM, autopct(drive_base, comp), 0.30, 120, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(80);
-
-  turn_imu_deg_2stage(-42,
-                      autopct(turn_base, comp),
-                      autopct(static_cast<int>(turn_base * 0.60), comp),
-                      0.92,
-                      120);
-  pros::delay(120);
 
   PistonA.set_value(true);
   pros::delay(320);
 
-  Conveyor.move(-127);
-  drive_straight_mm(FWD3_MM, autopct(45, comp), 0.30, 90, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(80);
-
-  pros::delay(2000);
-
-  drive_straight_mm(FWD7_MM, autopct(drive_base, comp), 0.40, 110, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(120);
-
-  drive_straight_mm(-BACK_MM, autopct(drive_base, comp), 0.30, 110, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(200);
+  drive_straight_mm(FWD2_MM, 
+                   autopct(drive_base, comp), 
+                   0.30, \
+                   120, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(20);
 
   Conveyor.move(-127);
-  Intake.move(-127);
-  pros::delay(2000);
+  drive_straight_mm(-FWD3_MM, 
+                   autopct(45, comp), 
+                   0.30, 
+                   90, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(20);
+  drive_straight_mm(FWD3_MM, 
+                   autopct(45, comp), 
+                   0.30, 
+                   90, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(920);
 
   PistonA.set_value(false);
 
-  drive_straight_mm(FWD4_MM, autopct(drive_base, comp), 0.30, 90, pros::E_MOTOR_BRAKE_HOLD);
+  drive_straight_mm(-BACK_MM, 
+                    autopct(drive_base, comp), 
+                    0.30, 
+                    110, 
+                    pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(30);
+
+  Conveyor.move(-127);
+  Intake.move(127);
+  pros::delay(1200);
+
+  PistonA.set_value(true);
+  pros::delay(100);
+
+  drive_straight_mm(FWD4_MM, 
+                   autopct(drive_base, comp), 
+                   0.30, 
+                   90, 
+                   pros::E_MOTOR_BRAKE_HOLD);
   pros::delay(120);
 
-  turn_imu_deg_2stage(-62,
+  Conveyor.move(-127);
+  drive_straight_mm(-FWD3_MM, 
+                   autopct(45, comp), 
+                   0.30, 
+                   90, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(80);
+  drive_straight_mm(FWD3_MM, 
+                   autopct(45, comp), 
+                   0.30, 
+                   90, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(920);
+
+  PistonA.set_value(false);
+
+  drive_straight_mm(-BACK_MM, 
+                    autopct(drive_base, comp), 
+                    0.30, 
+                    110, 
+                    pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(200);
+
+  Conveyor.move(-127);
+  Intake.move(127);
+  pros::delay(2000);
+
+  drive_straight_mm(FWD5_MM, 
+                   autopct(drive_base, comp), 
+                   0.30, 
+                   110, 
+                   pros::E_MOTOR_BRAKE_HOLD);
+  pros::delay(120);
+
+  turn_imu_deg_2stage(88,
                       autopct(turn_base, comp),
                       autopct(static_cast<int>(turn_base * 0.60), comp),
                       0.92,
                       120);
-  pros::delay(120);
 
-  drive_straight_mm(FWD5_MM, autopct(drive_base, comp), 0.30, 110, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(120);
-
-  pros::delay(2000);
-
-  Conveyor.move(127);
-  drive_straight_mm(FWD6_MM, autopct(45, comp), 0.30, 80, pros::E_MOTOR_BRAKE_HOLD);
-  pros::delay(120);
 
   const uint32_t elapsed = now_ms() - t0;
   if (elapsed < 15000) pros::delay(15000 - elapsed);
@@ -177,7 +215,6 @@ void routine_skills_izq() {
   const int FWD8_MM = mm_from_in(13.0);
 
   PistonA.set_value(false);
-  PistonB.set_value(false);
 
   drive_straight_mm(FWD2_MM, autopct(drive_base, comp), 0.30, 120, pros::E_MOTOR_BRAKE_HOLD);
   pros::delay(140);

@@ -7,7 +7,7 @@
 #include "motion.hpp"
 #include "odom.hpp"
 #include "pros/misc.h"
-#include "auton_kevin.hpp"
+#include "gui_lvgl.hpp"
 #include "test_auton.hpp"
 
 /**
@@ -147,12 +147,15 @@ void initialize() {
   configure_motors();
   initialize_random_seed();
 
-  // Tasks live for the program lifetime
-  pros::Task imuBtnTask(imu_button_task, "IMU Button");
-  pros::Task safetyTask(safety_task, "Safety Task");
-  pros::Task odomTask(odom_task_fn, "Odom Task");
+  // Tasks must outlive initialize()
+    static pros::Task imuBtnTask(imu_button_task, "IMU Button");
+    static pros::Task safetyTask(safety_task, "Safety Task");
+    static pros::Task odomTask(odom_task_fn, "Odom Task");
 
-  pros::lcd::set_text(0, "Init OK");
+    // Start Brain GUI task
+    aon::gui::Start();
+
+    pros::lcd::set_text(0, "Init OK");
 }
 
 /**
@@ -206,7 +209,8 @@ void competition_initialize() {
  * \brief PROS autonomous hook.
  */
 void autonomous() {
-  auton_kevin::autonomous_routine_kevin();}
+  autonomous_routine();
+}
 
 /**
  * \brief PROS operator control hook.
