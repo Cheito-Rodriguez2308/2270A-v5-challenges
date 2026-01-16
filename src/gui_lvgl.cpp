@@ -254,8 +254,8 @@ static void on_pick_kevin_match(lv_event_t* e) {
 }
 static void on_pick_kevin_skills(lv_event_t* e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  set_pick_label(lbl_red_pick, AutonId::Auton_Kevin_SKILLS_IZQ);
-  open_confirm_popup(AutonId::Auton_Kevin_SKILLS_IZQ);
+  set_pick_label(lbl_red_pick, AutonId::Auton_Kevin_SKILLS);
+  open_confirm_popup(AutonId::Auton_Kevin_SKILLS);
 }
 
 // Blue menu picks
@@ -276,15 +276,15 @@ static void on_pick_kevin_match_blue(lv_event_t* e) {
 }
 static void on_pick_kevin_skills_blue(lv_event_t* e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  set_pick_label(lbl_blue_pick, AutonId::Auton_Kevin_SKILLS_IZQ);
-  open_confirm_popup(AutonId::Auton_Kevin_SKILLS_IZQ);
+  set_pick_label(lbl_blue_pick, AutonId::Auton_Kevin_SKILLS);
+  open_confirm_popup(AutonId::Auton_Kevin_SKILLS);
 }
 
 // Skills picks
 static void on_pick_skills_kevin(lv_event_t* e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  set_pick_label(lbl_skills_pick, AutonId::Auton_Kevin_SKILLS_IZQ);
-  open_confirm_popup(AutonId::Auton_Kevin_SKILLS_IZQ);
+  set_pick_label(lbl_skills_pick, AutonId::Auton_Kevin_SKILLS);
+  open_confirm_popup(AutonId::Auton_Kevin_SKILLS);
 }
 
 // ---------------------------

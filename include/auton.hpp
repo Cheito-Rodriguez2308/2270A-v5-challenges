@@ -24,7 +24,8 @@ enum class AutonId : int {
   Right,
   Left,
   Auton_Kevin_IZQ,
-  Auton_Kevin_SKILLS_IZQ
+  Auton_Kevin_SKILLS,
+  Auton_Kevin_DER
 };
 
 // Selected auton (default set in auton.cpp)
@@ -64,7 +65,8 @@ namespace auton_kevin {
 // Which routine to run inside autonomous_routine_kevin()
 enum class Mode {
   MATCH_IZQ,        // from auton_izq
-  SKILLS_IZQ        // from auton_skills_izq
+  MATCH_DER,        // from auton_der
+  SKILLS            // from auton_skills_izq
 };
 
 // Set from GUI or from competition_initialize()
@@ -76,6 +78,7 @@ void autonomous_routine_kevin();
 
 // Optional direct entry points
 void routine_match_izq();
-void routine_skills_izq();
+void routine_match_der();
+void routine_skills();
 
 } // namespace auton_kevin

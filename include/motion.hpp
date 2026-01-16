@@ -100,5 +100,7 @@ void drive_straight_mm(double dist_mm,
 void turn_imu_deg_2stage(double deg_total,
                          int fast_pct = 35,
                          int slow_pct = 22,
-                         double split = 0.92,
-                         int settle_ms = 120);
+                         double split = 0.88,
+                         int settle_ms = 160,
+                         double tol_deg = 1.0,
+                         int timeout_ms = 1400);

@@ -203,8 +203,8 @@ static void ApplySelection(AutonId id) {
   // Keep auton_kevin mode consistent with your dispatcher
   if (id == AutonId::Auton_Kevin_IZQ) {
     auton_kevin::set_mode(auton_kevin::Mode::MATCH_IZQ);
-  } else if (id == AutonId::Auton_Kevin_SKILLS_IZQ) {
-    auton_kevin::set_mode(auton_kevin::Mode::SKILLS_IZQ);
+  } else if (id == AutonId::Auton_Kevin_SKILLS) {
+    auton_kevin::set_mode(auton_kevin::Mode::SKILLS);
   }
 
   // Optional: store a callable in the reader too
@@ -281,7 +281,7 @@ static void HandleButtonPress() {
         pros::delay(180);
       } else if (TouchStatus.y > blocks_y[3]) {
         DrawPressedBlock(blocks_x[0], blocks_y[3], blocks_x[3], blocks_y[4]);
-        ApplySelection(AutonId::Auton_Kevin_SKILLS_IZQ);
+        ApplySelection(AutonId::Auton_Kevin_SKILLS);
         pros::delay(180);
       }
     } break;

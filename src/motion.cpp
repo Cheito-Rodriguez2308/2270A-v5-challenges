@@ -212,21 +212,27 @@ double angle_error(double target, double current) {
   int left_rpm_cmd  = 0;
   int right_rpm_cmd = 0;
   const int RPM_SLEW_PER_10MS = 18;
+  
+  // Heading integral state.
+  double h_i = 0.0;
+  const double kI_heading = 0.015;
+  const double I_LIM = 40.0;
+  const double TRIM_LIM = 20.0;
 
   while (true) {
     const uint32_t now = pros::millis();
     if (now - t0 > timeout_ms) break;
-
+  
     // Rotation based distance.
     const double rot_deg = std::abs(rot_main.get_position()) / 100.0;
     const double rot_mm  = rot_deg_to_mm(rot_deg);
 
     // Motor fallback distance for rare rotation glitches.
-    const double mot_deg = std::abs(rot_main.get_position());
+    const double mot_deg = std::abs(lf.get_position());
     const double mot_mm  = (mot_deg / 360.0) * DRIVE_WHEEL_CIRC_MM;
 
     // const double d_mm = (rot_mm < 1.0 && mot_mm > 3.0) ? mot_mm : rot_mm;
-    const double d_mm = rot_mm;
+    const double d_mm = (rot_mm < 1.0 && mot_mm > 3.0) ? mot_mm : rot_mm;
     if (d_mm >= target_mm) break;
 
     const double remaining = target_mm - d_mm;
@@ -242,8 +248,8 @@ double angle_error(double target, double current) {
     double kp_use  = kP_heading;
 
     if (phase > 0.60) {
-      tol_deg = 4.0;
-      kp_use  = kP_heading * 0.60;
+      tol_deg = 3.0;
+      kp_use  = kP_heading * 0.90;
     } else if (phase > 0.30) {
       tol_deg = 2.0;
       kp_use  = kP_heading;
@@ -256,16 +262,26 @@ double angle_error(double target, double current) {
     const double heading = imu_main.get_heading();
     double err = angle_error(start_heading, heading);
     if (std::abs(err) < tol_deg) err = 0.0;
+        const double dt = 0.010; // 10 ms loop
 
-    double trim = kp_use * err;
-    trim = clamp_d(trim, -15.0, 15.0);
+    // Integral only when error is not deadbanded.
+    if (err != 0.0) {
+      h_i += err * dt;
+      h_i = clamp_d(h_i, -I_LIM, I_LIM);
+    } else {
+      // optional. bleed integral slowly so it does not stick
+      h_i *= 0.90;
+    }
+
+    double trim = kp_use * err + kI_heading * h_i;
+    trim = clamp_d(trim, -TRIM_LIM, TRIM_LIM);
 
     // Cubic slowdown profile.
     int pct = base_pct;
     if (slow_down_mm > 0.0 && remaining < slow_down_mm) {
       double ratio = clamp_d(remaining / slow_down_mm, 0.0, 1.0);
       ratio = ratio * ratio * ratio;
-      pct = std::max(35, static_cast<int>(std::lround(base_pct * ratio)));
+      pct = std::max(18, static_cast<int>(std::lround(base_pct * ratio)));
     }
 
     int left_pct  = static_cast<int>(std::lround(pct - trim));
@@ -380,7 +396,9 @@ void turn_imu_deg_2stage(double deg_total,
                          int fast_pct,
                          int slow_pct,
                          double split,
-                         int settle_ms)
+                         int settle_ms,
+                         double tol_deg,
+                         int timeout_ms) 
 {
   const double start = imu_main.get_heading();
 

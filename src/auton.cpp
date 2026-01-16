@@ -39,7 +39,7 @@ const char* auton_name(AutonId id) {
     case AutonId::Right:                return "RIGHT";
     case AutonId::Left:                 return "LEFT";
     case AutonId::Auton_Kevin_IZQ:      return "KEVIN_MATCH";
-    case AutonId::Auton_Kevin_SKILLS_IZQ:return "KEVIN_SKILLS";
+    case AutonId::Auton_Kevin_SKILLS:   return "KEVIN_SKILLS";
   }
   return "UNKNOWN";
 }
@@ -228,8 +228,8 @@ void autonomous_routine() {
       auton_kevin::autonomous_routine_kevin();
       break;
 
-    case AutonId::Auton_Kevin_SKILLS_IZQ:
-      auton_kevin::set_mode(auton_kevin::Mode::SKILLS_IZQ);
+    case AutonId::Auton_Kevin_SKILLS:
+      auton_kevin::set_mode(auton_kevin::Mode::SKILLS);
       auton_kevin::autonomous_routine_kevin();
       break;
 

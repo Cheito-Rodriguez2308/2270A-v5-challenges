@@ -209,7 +209,7 @@ void competition_initialize() {
  * \brief PROS autonomous hook.
  */
 void autonomous() {
-  autonomous_routine();
+  auton_kevin::autonomous_routine_kevin();
 }
 
 /**

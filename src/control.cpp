@@ -380,15 +380,21 @@ void driver_control_loop() {
     s.y_prev = y_now;
 
     const bool b_now = master.get_digital(pros::E_CONTROLLER_DIGITAL_B);
+
+    // Direct hold behavior
+    s.p2_state = b_now;
+    piston_2.set_value(s.p2_state);
+
+    // Optional feedback only on press edge
     if (b_now && !s.b_prev) {
-      s.p2_state = !s.p2_state;
-      piston_2.set_value(s.p2_state);
-      master.rumble("..");
+      master.rumble(".");
       master.clear_line(1);
-      master.set_text(1, 0, s.p2_state ? "Piston2 ON" : "Piston2 OFF");
+      master.set_text(1, 0, "Piston2 ON");
       hud_pause_until_ms = pros::millis() + 350;
     }
+
     s.b_prev = b_now;
+
 
     const bool x_now = master.get_digital(pros::E_CONTROLLER_DIGITAL_X);
     if (x_now && !s.x_prev) {
