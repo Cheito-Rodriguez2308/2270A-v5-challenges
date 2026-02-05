@@ -103,8 +103,8 @@ void Odometry::update() {
   // Axis convention
   // theta = 0 points to +Y
   // Forward integrates into Y
-  pose_.y     += delta_s_m * std::cos(theta_rad);
-  pose_.x     += delta_s_m * std::sin(theta_rad);
+  pose_.x     += delta_s_m * std::cos(theta_rad);
+  pose_.y     += delta_s_m * std::sin(theta_rad);
   pose_.theta  = theta_rad;
 
   last_rot_deg_ = cur_rot_deg;

@@ -92,8 +92,8 @@ public:
     const double y_error_robot = -sin_theta * dx + cos_theta * dy;
 
     // Gain term from RAMSETE paper
-    const double v_ref_abs = v_ref;
-    const double w_ref_abs = w_ref;
+    const double v_ref_abs = std::fabs(v_ref);
+    const double w_ref_abs = std::fabs(w_ref);
 
     const double k =
       2.0 * zeta_ *

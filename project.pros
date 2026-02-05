@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "PushBack 2270A SKILLS",
+    "project_name": "PushBack 2270A IZQ",
     "target": "v5",
     "templates": {
       "kernel": {
@@ -592,9 +592,9 @@
       }
     },
     "upload_options": {
-      "icon": "power",
+      "icon": "pizza",
       "description": "El proyecto para ir further beyond.",
-      "slot": 3
+      "slot": 6
     },
     "use_early_access": false
   }

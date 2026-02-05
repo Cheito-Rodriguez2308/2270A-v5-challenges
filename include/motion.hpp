@@ -82,7 +82,9 @@ double angle_error(double target, double current);
  */
 void drive_straight_mm(double dist_mm,
                        int base_pct = 50,
-                       double kP_heading = 0.5,
+                       double kP_heading = 4.0,
+                       double kI_heading = 0.0,
+                       double kD_heading = 0.4,
                        double slow_down_mm = 140.0,
                        pros::motor_brake_mode_e end_brake = pros::E_MOTOR_BRAKE_BRAKE,
                        int soft_settle_ms = 80,
@@ -104,3 +106,16 @@ void turn_imu_deg_2stage(double deg_total,
                          int settle_ms = 160,
                          double tol_deg = 1.0,
                          int timeout_ms = 1400);
+
+
+// Drive to a global point (x,y) using RAMSETE on a straight-line reference.
+// Units: x_mm, y_mm in mm, heading_deg in degrees, speeds in percent.
+void drive_to_pose_ramsete_mm(double x_mm,
+                              double y_mm,
+                              double heading_deg,
+                              int base_pct = 60,
+                              double a_max_mps2 = 1.2,
+                              double pos_tol_mm = 15.0,
+                              double ang_tol_deg = 2.0,
+                              int timeout_ms = 2500,
+                              pros::motor_brake_mode_e end_brake = pros::E_MOTOR_BRAKE_BRAKE);
