@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "PushBack 2270A IZQ",
+    "project_name": "PushBack 2270A Tests",
     "target": "v5",
     "templates": {
       "kernel": {

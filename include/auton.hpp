@@ -51,6 +51,8 @@ void auton_right();
  */
 void auton_left();
 
+void routine_skills_ramsete();
+
 /**
  * auton_kevin
  *
@@ -80,5 +82,6 @@ void autonomous_routine_kevin();
 void routine_match_izq();
 void routine_match_der();
 void routine_skills();
+void routine_skills_ramsete();
 
 } // namespace auton_kevin
